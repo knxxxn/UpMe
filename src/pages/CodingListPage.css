@@ -1,0 +1,202 @@
+.coding-list-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--color-primary), #a855f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.page-header p {
+    color: var(--color-text-secondary);
+}
+
+.filters-section {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+    background: var(--color-bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.filter-btn:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.filter-btn.active {
+    background: linear-gradient(135deg, var(--color-primary), #6366f1);
+    border-color: transparent;
+    color: white;
+}
+
+.problems-section {
+    background: var(--color-bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+}
+
+.problems-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.problems-table th,
+.problems-table td {
+    padding: 1rem 1.25rem;
+    text-align: left;
+}
+
+.problems-table th {
+    background: var(--color-bg-card);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.problems-table tr {
+    transition: background var(--transition-fast);
+}
+
+.problems-table tbody tr:hover {
+    background: var(--color-bg-hover);
+}
+
+.problems-table td {
+    border-bottom: 1px solid var(--color-border);
+    font-size: 0.9rem;
+}
+
+.status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.status-icon.solved {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--color-success);
+}
+
+.problem-link {
+    color: var(--color-text-primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color var(--transition-fast);
+}
+
+.problem-link:hover {
+    color: var(--color-primary);
+}
+
+.difficulty-tag {
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.category-tag {
+    padding: 0.25rem 0.625rem;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+}
+
+.accuracy {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.375rem;
+    margin-top: 1.5rem;
+}
+
+.page-btn {
+    min-width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.page-btn:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.page-btn.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .filters-section {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .filter-buttons {
+        flex-wrap: wrap;
+    }
+}
