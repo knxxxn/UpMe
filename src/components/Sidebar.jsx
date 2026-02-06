@@ -1,4 +1,6 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import authService from '../services/authService'
 import './Sidebar.css'
 
 const menuItems = [
@@ -36,6 +38,26 @@ const menuItems = [
 
 function Sidebar() {
     const location = useLocation()
+    const navigate = useNavigate()
+    const [user, setUser] = useState(null)
+
+    useEffect(() => {
+        // localStorage에서 사용자 정보 확인
+        const storedUser = localStorage.getItem('user')
+        if (storedUser) {
+            try {
+                setUser(JSON.parse(storedUser))
+            } catch (e) {
+                setUser(null)
+            }
+        }
+    }, [location]) // location이 바뀔 때마다 체크 (로그인 후 리다이렉트 시)
+
+    const handleLogout = async () => {
+        await authService.logout()
+        setUser(null)
+        navigate('/login')
+    }
 
     return (
         <aside className="sidebar">
@@ -65,16 +87,29 @@ function Sidebar() {
             </nav>
 
             <div className="sidebar-footer">
-                <div className="user-card">
-                    <div className="user-avatar">U</div>
-                    <div className="user-info">
-                        <span className="user-name">사용자</span>
-                        <span className="user-status">온라인</span>
+                {user ? (
+                    <div className="user-card">
+                        <div className="user-avatar">{user.name?.charAt(0) || 'U'}</div>
+                        <div className="user-info">
+                            <span className="user-name">{user.name || '사용자'}</span>
+                            <button className="logout-btn" onClick={handleLogout}>
+                                로그아웃
+                            </button>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <NavLink to="/login" className="login-card">
+                        <div className="user-avatar">👤</div>
+                        <div className="user-info">
+                            <span className="user-name">로그인</span>
+                            <span className="user-status">로그인하세요</span>
+                        </div>
+                    </NavLink>
+                )}
             </div>
         </aside>
     )
 }
 
 export default Sidebar
+

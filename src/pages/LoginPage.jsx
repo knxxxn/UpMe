@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import authService from '../services/authService'
 import './LoginPage.css'
 
 function LoginPage() {
@@ -22,15 +23,16 @@ function LoginPage() {
         setIsLoading(true)
         setError('')
 
-        // 시뮬레이션
-        await new Promise(resolve => setTimeout(resolve, 1000))
-
-        if (formData.email && formData.password) {
-            navigate('/')
-        } else {
-            setError('이메일과 비밀번호를 입력해주세요.')
+        try {
+            const response = await authService.login(formData.email, formData.password)
+            if (response.success) {
+                navigate('/')
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || '로그인에 실패했습니다. 다시 시도해주세요.')
+        } finally {
+            setIsLoading(false)
         }
-        setIsLoading(false)
     }
 
     return (

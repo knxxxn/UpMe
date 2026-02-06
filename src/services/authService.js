@@ -10,25 +10,24 @@ import api from './api';
 const authService = {
     /**
      * 로그인
-     * @param {string} email - 사용자 이메일
+     * @param {string} identifier - 사용자 이메일 또는 전화번호
      * @param {string} password - 비밀번호
      * @returns {Promise} 로그인 결과 (토큰, 사용자 정보)
      */
-    async login(email, password) {
-        // TODO: DATABASE 연결 필요
-        // const response = await api.post('/auth/login', { email, password });
-        // localStorage.setItem('accessToken', response.data.accessToken);
-        // localStorage.setItem('refreshToken', response.data.refreshToken);
-        // return response.data;
+    async login(identifier, password) {
+        try {
+            const response = await api.post('/auth/login', { identifier, password });
+            const { accessToken, refreshToken, user } = response.data;
 
-        // 임시 더미 응답
-        console.log('AuthService.login() - DATABASE 연결 필요', { email });
-        return {
-            success: true,
-            user: { id: 1, email, name: '테스트 사용자' },
-            accessToken: 'dummy-access-token',
-            refreshToken: 'dummy-refresh-token',
-        };
+            localStorage.setItem('accessToken', accessToken);
+            localStorage.setItem('refreshToken', refreshToken);
+            localStorage.setItem('user', JSON.stringify(user));
+
+            return response.data;
+        } catch (error) {
+            console.error('로그인 실패:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     /**
@@ -37,20 +36,25 @@ const authService = {
      * @param {string} userData.email - 이메일
      * @param {string} userData.password - 비밀번호
      * @param {string} userData.name - 이름
+     * @param {string} userData.phoneNumber - 전화번호 (선택)
      * @returns {Promise} 회원가입 결과
      */
     async register(userData) {
-        // TODO: DATABASE 연결 필요
-        // const response = await api.post('/auth/register', userData);
-        // return response.data;
+        try {
+            const response = await api.post('/auth/register', userData);
+            const { accessToken, refreshToken, user } = response.data;
 
-        // 임시 더미 응답
-        console.log('AuthService.register() - DATABASE 연결 필요', userData);
-        return {
-            success: true,
-            message: '회원가입이 완료되었습니다.',
-            user: { id: 1, ...userData },
-        };
+            if (accessToken) {
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('refreshToken', refreshToken);
+                localStorage.setItem('user', JSON.stringify(user));
+            }
+
+            return response.data;
+        } catch (error) {
+            console.error('회원가입 실패:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     /**

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import authService from '../services/authService'
 import './RegisterPage.css'
 
 function RegisterPage() {
@@ -44,9 +45,23 @@ function RegisterPage() {
         }
 
         setIsLoading(true)
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        setIsLoading(false)
-        navigate('/login')
+        try {
+            const userData = {
+                name: formData.name,
+                email: formData.email,
+                password: formData.password,
+                phoneNumber: formData.phone || null
+            }
+            const response = await authService.register(userData)
+            if (response.success) {
+                alert('회원가입이 완료되었습니다!')
+                navigate('/login')
+            }
+        } catch (err) {
+            setErrors({ general: err.response?.data?.message || '회원가입에 실패했습니다. 다시 시도해주세요.' })
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     return (

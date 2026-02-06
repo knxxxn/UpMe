@@ -38,3 +38,13 @@ implementation_plan.md
 *.tmp
 *.temp
 .cache/
+
+# Backend (Spring Boot)
+backend/.gradle/
+backend/build/
+backend/src/main/resources/application.properties
+backend/src/main/resources/application-*.properties
+*.jar
+
+# Keep example config
+!backend/src/main/resources/application.properties.example
