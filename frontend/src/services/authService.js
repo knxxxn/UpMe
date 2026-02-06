@@ -62,12 +62,16 @@ const authService = {
      * @returns {Promise} 로그아웃 결과
      */
     async logout() {
-        // TODO: DATABASE 연결 필요
-        // await api.post('/auth/logout');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-
-        console.log('AuthService.logout() - DATABASE 연결 필요');
+        try {
+            await api.post('/auth/logout');
+        } catch (error) {
+            console.error('Logout failed on server:', error);
+        } finally {
+            // 서버 요청 실패와 무관하게 클라이언트 세션은 정리
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+        }
         return { success: true };
     },
 

@@ -1,8 +1,31 @@
-import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import authService from '../services/authService'
 import './Header.css'
 
 function Header() {
     const location = useLocation()
+    const navigate = useNavigate()
+    const [user, setUser] = useState(null)
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('user')
+        if (storedUser) {
+            try {
+                setUser(JSON.parse(storedUser))
+            } catch (e) {
+                setUser(null)
+            }
+        } else {
+            setUser(null)
+        }
+    }, [location])
+
+    const handleLogout = async () => {
+        await authService.logout()
+        setUser(null)
+        navigate('/login')
+    }
 
     const getPageTitle = () => {
         const path = location.pathname
@@ -43,12 +66,22 @@ function Header() {
                     <span className="notification-badge">3</span>
                 </button>
 
-                <Link to="/login" className="btn btn-primary btn-sm">
-                    로그인
-                </Link>
+                {user ? (
+                    <div className="user-menu">
+                        <span className="user-greeting">{user.name}님</span>
+                        <button onClick={handleLogout} className="btn btn-outline btn-sm">
+                            로그아웃
+                        </button>
+                    </div>
+                ) : (
+                    <Link to="/login" className="btn btn-primary btn-sm">
+                        로그인
+                    </Link>
+                )}
             </div>
         </header>
     )
 }
 
 export default Header
+
