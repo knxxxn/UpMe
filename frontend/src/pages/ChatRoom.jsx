@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
+import LoginPromptModal from '../components/LoginPromptModal'
+import { useAuth } from '../components/AuthContext'
 import './ChatRoom.css'
+
+const GUEST_MESSAGE_LIMIT = 3
 
 const initialMessages = [
     {
@@ -13,9 +17,12 @@ const initialMessages = [
 
 function ChatRoom() {
     const { roomId } = useParams()
+    const { isLoggedIn } = useAuth()
     const [messages, setMessages] = useState(initialMessages)
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
+    const [guestMessageCount, setGuestMessageCount] = useState(0)
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false)
     const messagesEndRef = useRef(null)
 
     const scrollToBottom = () => {
@@ -28,6 +35,15 @@ function ChatRoom() {
 
     const handleSend = async () => {
         if (!input.trim()) return
+
+        // 비로그인 사용자 메시지 제한 체크
+        if (!isLoggedIn) {
+            if (guestMessageCount >= GUEST_MESSAGE_LIMIT) {
+                setShowLoginPrompt(true)
+                return
+            }
+            setGuestMessageCount(prev => prev + 1)
+        }
 
         const userMessage = {
             id: messages.length + 1,
@@ -69,6 +85,8 @@ function ChatRoom() {
         }
     }
 
+    const remainingMessages = isLoggedIn ? null : GUEST_MESSAGE_LIMIT - guestMessageCount
+
     return (
         <div className="chat-room animate-fade-in">
             <div className="chat-header">
@@ -80,6 +98,11 @@ function ChatRoom() {
                     </div>
                 </div>
                 <div className="chat-actions">
+                    {!isLoggedIn && remainingMessages !== null && (
+                        <span className="guest-limit-badge">
+                            체험 {remainingMessages}회 남음
+                        </span>
+                    )}
                     <button className="icon-btn" title="설정">⚙️</button>
                     <button className="icon-btn" title="도움말">❓</button>
                 </div>
@@ -123,13 +146,18 @@ function ChatRoom() {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="메시지를 입력하세요..."
+                        placeholder={
+                            !isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT
+                                ? "체험이 끝났습니다. 로그인하여 계속하세요!"
+                                : "메시지를 입력하세요..."
+                        }
                         rows={1}
                         className="message-input"
+                        disabled={!isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT}
                     />
                     <button
                         onClick={handleSend}
-                        disabled={!input.trim() || isTyping}
+                        disabled={!input.trim() || isTyping || (!isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT)}
                         className="send-btn"
                     >
                         ➤
@@ -139,6 +167,14 @@ function ChatRoom() {
                     <span>Shift + Enter로 줄바꿈</span>
                 </div>
             </div>
+
+            {/* Login Prompt Modal */}
+            <LoginPromptModal
+                isOpen={showLoginPrompt}
+                onClose={() => setShowLoginPrompt(false)}
+                feature="무제한 회화 연습"
+                message="체험 횟수를 모두 사용했습니다. 로그인하면 무제한으로 대화하고 기록을 저장할 수 있어요!"
+            />
         </div>
     )
 }

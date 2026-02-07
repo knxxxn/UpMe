@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import CodeEditor from '../components/CodeEditor'
+import LoginPromptModal from '../components/LoginPromptModal'
+import { useAuth } from '../components/AuthContext'
 import './CodingPage.css'
 
 // 샘플 문제 데이터
@@ -21,17 +23,20 @@ const sampleProblem = {
 
 function CodingPage() {
     const { roomId } = useParams()
+    const { isLoggedIn } = useAuth()
     const [code, setCode] = useState('')
     const [language, setLanguage] = useState('python')
     const [results, setResults] = useState([])
     const [isRunning, setIsRunning] = useState(false)
     const [activeTab, setActiveTab] = useState('result')
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
     // Resizable panel state
     const [resultHeight, setResultHeight] = useState(250)
     const [isResizing, setIsResizing] = useState(false)
     const editorPanelRef = useRef(null)
 
+    // 코드 실행 - 비로그인도 가능
     const handleRun = async () => {
         setIsRunning(true)
         setActiveTab('result')
@@ -46,7 +51,14 @@ function CodingPage() {
         setIsRunning(false)
     }
 
+    // 제출 - 로그인 필요
     const handleSubmit = async () => {
+        // 로그인 체크
+        if (!isLoggedIn) {
+            setShowLoginPrompt(true)
+            return
+        }
+
         setIsRunning(true)
         setActiveTab('result')
 
@@ -74,7 +86,6 @@ function CodingPage() {
             if (editorPanelRef.current) {
                 const panelRect = editorPanelRef.current.getBoundingClientRect()
                 const newHeight = startHeight - (e.clientY - startY)
-                // Min 100px, max 70% of panel height
                 const maxHeight = panelRect.height * 0.7
                 const clampedHeight = Math.max(100, Math.min(maxHeight, newHeight))
                 setResultHeight(clampedHeight)
@@ -239,6 +250,14 @@ function CodingPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Login Prompt Modal */}
+            <LoginPromptModal
+                isOpen={showLoginPrompt}
+                onClose={() => setShowLoginPrompt(false)}
+                feature="채점 결과 저장"
+                message="채점 결과를 저장하고 학습 통계를 확인하려면 로그인이 필요합니다."
+            />
         </div>
     )
 }

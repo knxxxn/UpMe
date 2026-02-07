@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '../components/AuthContext'
 import './ConversationPage.css'
 
 const topics = [
@@ -17,11 +18,19 @@ const recentChats = [
 ]
 
 function ConversationPage() {
+    const { isLoggedIn } = useAuth()
+
     return (
         <div className="conversation-page animate-fade-in">
             <div className="page-header">
                 <h1>회화 연습</h1>
                 <p>AI와 함께 영어 회화 실력을 향상시키세요</p>
+                {!isLoggedIn && (
+                    <div className="guest-notice">
+                        <span className="guest-notice-icon">💡</span>
+                        <span>비회원은 3회까지 체험 가능합니다. 로그인하면 무제한!</span>
+                    </div>
+                )}
             </div>
 
             <section className="topics-section">
@@ -42,21 +51,39 @@ function ConversationPage() {
                 </div>
             </section>
 
-            <section className="recent-section">
-                <h2 className="section-title">최근 대화</h2>
-                <div className="recent-list">
-                    {recentChats.map((chat) => (
-                        <Link key={chat.id} to={`/conversation/${chat.id}`} className="recent-item">
-                            <div className="recent-avatar">💬</div>
-                            <div className="recent-content">
-                                <h4 className="recent-title">{chat.title}</h4>
-                                <p className="recent-message">{chat.lastMessage}</p>
-                            </div>
-                            <span className="recent-time">{chat.time}</span>
-                        </Link>
-                    ))}
-                </div>
-            </section>
+            {/* 최근 대화 - 로그인 시에만 표시 */}
+            {isLoggedIn && (
+                <section className="recent-section">
+                    <h2 className="section-title">최근 대화</h2>
+                    <div className="recent-list">
+                        {recentChats.map((chat) => (
+                            <Link key={chat.id} to={`/conversation/${chat.id}`} className="recent-item">
+                                <div className="recent-avatar">💬</div>
+                                <div className="recent-content">
+                                    <h4 className="recent-title">{chat.title}</h4>
+                                    <p className="recent-message">{chat.lastMessage}</p>
+                                </div>
+                                <span className="recent-time">{chat.time}</span>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {/* 비로그인 시 로그인 유도 */}
+            {!isLoggedIn && (
+                <section className="login-cta-section">
+                    <div className="login-cta-card">
+                        <span className="login-cta-icon">🔓</span>
+                        <h3>로그인하고 더 많은 기능을 이용하세요</h3>
+                        <p>대화 기록 저장 • 학습 통계 확인 • 무제한 회화</p>
+                        <div className="login-cta-buttons">
+                            <Link to="/login" className="btn btn-primary">로그인</Link>
+                            <Link to="/register" className="btn btn-secondary">회원가입</Link>
+                        </div>
+                    </div>
+                </section>
+            )}
         </div>
     )
 }

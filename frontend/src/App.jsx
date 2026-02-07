@@ -1,5 +1,6 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { ToastProvider } from './components/ToastContext'
+import { AuthProvider } from './components/AuthContext'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 import HomePage from './pages/HomePage'
@@ -10,30 +11,34 @@ import CodingListPage from './pages/CodingListPage'
 import ConversationPage from './pages/ConversationPage'
 import ChatRoom from './pages/ChatRoom'
 import MyPage from './pages/MyPage'
+import DailyWordPage from './pages/DailyWordPage'
 import './App.css'
 
 function App() {
     return (
-        <ToastProvider>
-            <div className="app-layout">
-                <Sidebar />
-                <div className="main-content">
-                    <Header />
-                    <main className="page-content">
-                        <Routes>
-                            <Route path="/" element={<HomePage />} />
-                            <Route path="/login" element={<LoginPage />} />
-                            <Route path="/register" element={<RegisterPage />} />
-                            <Route path="/coding" element={<CodingListPage />} />
-                            <Route path="/coding/:roomId" element={<CodingPage />} />
-                            <Route path="/conversation" element={<ConversationPage />} />
-                            <Route path="/conversation/:roomId" element={<ChatRoom />} />
-                            <Route path="/mypage" element={<MyPage />} />
-                        </Routes>
-                    </main>
+        <AuthProvider>
+            <ToastProvider>
+                <div className="app-layout">
+                    <Sidebar />
+                    <div className="main-content">
+                        <Header />
+                        <main className="page-content">
+                            <Routes>
+                                <Route path="/" element={<HomePage />} />
+                                <Route path="/login" element={<LoginPage />} />
+                                <Route path="/register" element={<RegisterPage />} />
+                                <Route path="/coding" element={<CodingListPage />} />
+                                <Route path="/coding/:roomId" element={<CodingPage />} />
+                                <Route path="/conversation" element={<ConversationPage />} />
+                                <Route path="/conversation/:roomId" element={<ChatRoom />} />
+                                <Route path="/mypage" element={<MyPage />} />
+                                <Route path="/daily-word" element={<DailyWordPage />} />
+                            </Routes>
+                        </main>
+                    </div>
                 </div>
-            </div>
-        </ToastProvider>
+            </ToastProvider>
+        </AuthProvider>
     )
 }
 
