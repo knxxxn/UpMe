@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useToast } from '../components/ToastContext'
 import authService from '../services/authService'
 import './RegisterPage.css'
 
 function RegisterPage() {
     const navigate = useNavigate()
+    const { success, error: showError } = useToast()
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -54,11 +56,20 @@ function RegisterPage() {
             }
             const response = await authService.register(userData)
             if (response.success) {
-                alert('회원가입이 완료되었습니다!')
+                success('회원가입이 완료되었습니다!')
                 navigate('/login')
             }
         } catch (err) {
-            setErrors({ general: err.response?.data?.message || '회원가입에 실패했습니다. 다시 시도해주세요.' })
+            const errorMessage = err.response?.data?.message || '회원가입에 실패했습니다. 다시 시도해주세요.'
+
+            // Show toast for duplicate email error
+            if (errorMessage.includes('이메일') || errorMessage.includes('이미')) {
+                showError('이미 가입된 사용자입니다')
+            } else {
+                showError(errorMessage)
+            }
+
+            setErrors({ general: errorMessage })
         } finally {
             setIsLoading(false)
         }

@@ -116,10 +116,6 @@ function LoginPage() {
                             <span>G</span>
                             Google로 로그인
                         </button>
-                        <button className="social-btn github">
-                            <span>🐙</span>
-                            GitHub로 로그인
-                        </button>
                     </div>
 
                     <div className="login-footer">
