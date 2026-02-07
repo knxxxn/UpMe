@@ -125,11 +125,46 @@
 }
 
 .result-section {
-    height: 220px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    border-top: 1px solid var(--color-border);
+    border-top: none;
     background: var(--color-bg-secondary);
+}
+
+/* Panel Resizer */
+.panel-resizer {
+    height: 8px;
+    background: var(--color-border);
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition-fast);
+    position: relative;
+}
+
+.panel-resizer:hover,
+.coding-page.resizing .panel-resizer {
+    background: var(--color-primary);
+}
+
+.resizer-handle {
+    width: 40px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+}
+
+.panel-resizer:hover .resizer-handle,
+.coding-page.resizing .resizer-handle {
+    background: rgba(255, 255, 255, 0.6);
+}
+
+/* Disable selection during resize */
+.coding-page.resizing {
+    user-select: none;
+    cursor: ns-resize;
 }
 
 .result-tabs {

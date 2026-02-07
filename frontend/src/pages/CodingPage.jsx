@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import CodeEditor from '../components/CodeEditor'
 import './CodingPage.css'
@@ -26,6 +26,11 @@ function CodingPage() {
     const [results, setResults] = useState([])
     const [isRunning, setIsRunning] = useState(false)
     const [activeTab, setActiveTab] = useState('result')
+
+    // Resizable panel state
+    const [resultHeight, setResultHeight] = useState(250)
+    const [isResizing, setIsResizing] = useState(false)
+    const editorPanelRef = useRef(null)
 
     const handleRun = async () => {
         setIsRunning(true)
@@ -57,10 +62,39 @@ function CodingPage() {
         setIsRunning(false)
     }
 
+    // Handle resize start
+    const handleResizeStart = useCallback((e) => {
+        e.preventDefault()
+        setIsResizing(true)
+
+        const startY = e.clientY
+        const startHeight = resultHeight
+
+        const handleMouseMove = (e) => {
+            if (editorPanelRef.current) {
+                const panelRect = editorPanelRef.current.getBoundingClientRect()
+                const newHeight = startHeight - (e.clientY - startY)
+                // Min 100px, max 70% of panel height
+                const maxHeight = panelRect.height * 0.7
+                const clampedHeight = Math.max(100, Math.min(maxHeight, newHeight))
+                setResultHeight(clampedHeight)
+            }
+        }
+
+        const handleMouseUp = () => {
+            setIsResizing(false)
+            document.removeEventListener('mousemove', handleMouseMove)
+            document.removeEventListener('mouseup', handleMouseUp)
+        }
+
+        document.addEventListener('mousemove', handleMouseMove)
+        document.addEventListener('mouseup', handleMouseUp)
+    }, [resultHeight])
+
     const passedCount = results.filter(r => r.passed).length
 
     return (
-        <div className="coding-page">
+        <div className={`coding-page ${isResizing ? 'resizing' : ''}`}>
             {/* 좌측: 문제 설명 */}
             <div className="problem-panel">
                 <div className="problem-header">
@@ -116,7 +150,7 @@ function CodingPage() {
             </div>
 
             {/* 우측: 코드 에디터 + 결과 */}
-            <div className="editor-panel">
+            <div className="editor-panel" ref={editorPanelRef}>
                 <div className="editor-section">
                     <CodeEditor
                         onCodeChange={setCode}
@@ -124,7 +158,15 @@ function CodingPage() {
                     />
                 </div>
 
-                <div className="result-section">
+                {/* Resizable divider */}
+                <div
+                    className="panel-resizer"
+                    onMouseDown={handleResizeStart}
+                >
+                    <div className="resizer-handle"></div>
+                </div>
+
+                <div className="result-section" style={{ height: `${resultHeight}px` }}>
                     <div className="result-tabs">
                         <button
                             className={`result-tab ${activeTab === 'result' ? 'active' : ''}`}
