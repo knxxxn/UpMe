@@ -272,7 +272,85 @@
     }
 }
 
-/* Withdraw Section */
+/* Saved Words Section */
+.saved-words-section {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.saved-words-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+}
+
+.saved-word-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-fast);
+}
+
+.saved-word-card:hover {
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+}
+
+.saved-word-english {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.25rem;
+}
+
+.saved-word-korean {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+.unsave-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.unsave-btn:hover {
+    color: var(--color-error);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.empty-saved-words {
+    text-align: center;
+    padding: 2rem;
+}
+
+.empty-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+.empty-saved-words p {
+    color: var(--color-text-secondary);
+    margin-bottom: 1rem;
+}
+
+.loading-text {
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: 1.5rem;
+}
+
 .withdraw-section {
     margin-top: 2rem;
     padding-top: 2rem;

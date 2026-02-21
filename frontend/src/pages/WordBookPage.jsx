@@ -1,47 +1,42 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../components/AuthContext'
-import LoginPromptModal from '../components/LoginPromptModal'
 import { useToast } from '../components/ToastContext'
 import wordService from '../services/wordService'
-import './DailyWordPage.css'
+import './WordBookPage.css'
 
-function DailyWordPage() {
+function WordBookPage() {
     const { isLoggedIn } = useAuth()
     const { success, error: showError } = useToast()
-    const [showLoginPrompt, setShowLoginPrompt] = useState(false)
-    const [words, setWords] = useState([])
-    const [savedIds, setSavedIds] = useState(new Set())
+    const [savedWords, setSavedWords] = useState([])
     const [loading, setLoading] = useState(true)
 
-    // 랜덤 단어 3개 로드
     useEffect(() => {
-        fetchRandomWords()
-    }, [])
+        if (isLoggedIn) {
+            fetchSavedWords()
+        } else {
+            setLoading(false)
+        }
+    }, [isLoggedIn])
 
-    const fetchRandomWords = async () => {
+    const fetchSavedWords = async () => {
         setLoading(true)
         try {
-            const data = await wordService.getRandomWords()
-            setWords(data)
+            const data = await wordService.getSavedWords()
+            setSavedWords(data)
         } catch (err) {
-            console.error('단어 로딩 실패:', err)
+            console.error('저장 단어 로딩 실패:', err)
         } finally {
             setLoading(false)
         }
     }
 
-    const handleSaveWord = async (wordId) => {
-        if (!isLoggedIn) {
-            setShowLoginPrompt(true)
-            return
-        }
-
+    const handleUnsaveWord = async (wordId) => {
         try {
-            await wordService.saveWord(wordId)
-            setSavedIds(prev => new Set([...prev, wordId]))
-            success('단어가 저장되었습니다!')
+            await wordService.unsaveWord(wordId)
+            setSavedWords(prev => prev.filter(w => w.id !== wordId))
+            success('단어 저장이 취소되었습니다.')
         } catch (err) {
-            showError('단어 저장에 실패했습니다.')
+            showError('단어 저장 취소에 실패했습니다.')
         }
     }
 
@@ -52,31 +47,47 @@ function DailyWordPage() {
     }
 
     return (
-        <div className="daily-word-page animate-fade-in">
+        <div className="wordbook-page animate-fade-in">
             <div className="page-header">
-                <h1>📚 오늘의 단어</h1>
-                <p>매일 새로운 단어를 학습하고 어휘력을 키워보세요</p>
+                <h1>📚 단어장</h1>
+                <p>저장한 단어들을 복습하세요</p>
             </div>
 
-            {loading ? (
+            {!isLoggedIn ? (
+                <div className="login-required-notice">
+                    <span className="notice-icon">🔒</span>
+                    <p>로그인하면 저장한 단어를 확인할 수 있어요!</p>
+                    <div className="notice-buttons">
+                        <a href="/login" className="btn btn-primary">로그인</a>
+                        <a href="/register" className="btn btn-secondary">회원가입</a>
+                    </div>
+                </div>
+            ) : loading ? (
                 <div className="loading-state">
                     <div className="loading-spinner"></div>
                     <p>단어를 불러오는 중...</p>
                 </div>
+            ) : savedWords.length === 0 ? (
+                <div className="empty-state">
+                    <span className="empty-icon">📝</span>
+                    <h3>저장한 단어가 없습니다</h3>
+                    <p>오늘의 단어에서 마음에 드는 단어를 저장해보세요!</p>
+                    <a href="/daily-word" className="btn btn-primary">오늘의 단어 보러가기</a>
+                </div>
             ) : (
                 <>
-                    {/* 단어 카드 3개 */}
+                    <p className="word-count">총 <strong>{savedWords.length}</strong>개의 단어</p>
                     <div className="word-cards-grid">
-                        {words.map((word) => (
+                        {savedWords.map((word) => (
                             <div key={word.id} className="word-card-main">
                                 <div className="word-card-header">
-                                    <span className="word-badge">Today's Word</span>
+                                    <span className="word-badge">Saved</span>
                                     <button
-                                        className={`save-btn ${savedIds.has(word.id) ? 'saved' : ''}`}
-                                        onClick={() => handleSaveWord(word.id)}
-                                        disabled={savedIds.has(word.id)}
+                                        className="unsave-btn"
+                                        onClick={() => handleUnsaveWord(word.id)}
+                                        title="저장 취소"
                                     >
-                                        {savedIds.has(word.id) ? '✓ 저장됨' : '💾 저장하기'}
+                                        ✕
                                     </button>
                                 </div>
 
@@ -100,16 +111,8 @@ function DailyWordPage() {
                     </div>
                 </>
             )}
-
-            {/* Login Prompt Modal */}
-            <LoginPromptModal
-                isOpen={showLoginPrompt}
-                onClose={() => setShowLoginPrompt(false)}
-                feature="단어 저장"
-                message="단어를 저장하고 나만의 단어장을 만들려면 로그인이 필요합니다."
-            />
         </div>
     )
 }
 
-export default DailyWordPage
+export default WordBookPage

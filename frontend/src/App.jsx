@@ -12,6 +12,7 @@ import ConversationPage from './pages/ConversationPage'
 import ChatRoom from './pages/ChatRoom'
 import MyPage from './pages/MyPage'
 import DailyWordPage from './pages/DailyWordPage'
+import WordBookPage from './pages/WordBookPage'
 import './App.css'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
                                 <Route path="/conversation/:roomId" element={<ChatRoom />} />
                                 <Route path="/mypage" element={<MyPage />} />
                                 <Route path="/daily-word" element={<DailyWordPage />} />
+                                <Route path="/wordbook" element={<WordBookPage />} />
                             </Routes>
                         </main>
                     </div>

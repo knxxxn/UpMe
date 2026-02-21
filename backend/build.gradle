@@ -40,6 +40,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'com.mysql:mysql-connector-j'
     
+    // Apache POI (Excel parsing)
+    implementation 'org.apache.poi:poi-ooxml:5.2.5'
+    
     // Dev Tools
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     
