@@ -32,16 +32,18 @@ public class UserController {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
 
-                return ResponseEntity.ok(Map.of(
-                                "id", user.getId(),
-                                "email", user.getEmail() != null ? user.getEmail() : "",
-                                "name", user.getName(),
-                                "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "",
-                                "createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "",
-                                "stats", Map.of(
-                                                "solvedProblems", 0,
-                                                "totalSubmissions", 0,
-                                                "successRate", 0)));
+                java.util.Map<String, Object> result = new java.util.HashMap<>();
+                result.put("id", user.getId());
+                result.put("email", user.getEmail() != null ? user.getEmail() : "");
+                result.put("name", user.getName());
+                result.put("phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
+                result.put("bojHandle", user.getBojHandle() != null ? user.getBojHandle() : "");
+                result.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "");
+                result.put("stats", Map.of(
+                                "solvedProblems", 0,
+                                "totalSubmissions", 0,
+                                "successRate", 0));
+                return ResponseEntity.ok(result);
         }
 
         /**
@@ -68,18 +70,25 @@ public class UserController {
                         user.setPhoneNumber(request.get("phoneNumber"));
                 }
 
+                // 백준 아이디 수정
+                if (request.containsKey("bojHandle")) {
+                        user.setBojHandle(request.get("bojHandle"));
+                }
+
                 userRepository.save(user);
                 log.info("프로필 수정 완료: userId={}", userId);
+
+                java.util.Map<String, Object> userMap = new java.util.HashMap<>();
+                userMap.put("id", user.getId());
+                userMap.put("name", user.getName());
+                userMap.put("email", user.getEmail() != null ? user.getEmail() : "");
+                userMap.put("phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
+                userMap.put("bojHandle", user.getBojHandle() != null ? user.getBojHandle() : "");
 
                 return ResponseEntity.ok(Map.of(
                                 "success", true,
                                 "message", "프로필이 수정되었습니다",
-                                "user", Map.of(
-                                                "id", user.getId(),
-                                                "name", user.getName(),
-                                                "email", user.getEmail() != null ? user.getEmail() : "",
-                                                "phoneNumber",
-                                                user.getPhoneNumber() != null ? user.getPhoneNumber() : "")));
+                                "user", userMap));
         }
 
         /**

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/ToastContext'
 import userService from '../services/userService'
+import solvedacService from '../services/solvedacService'
 import './MyPage.css'
 
 const weeklyData = [
@@ -34,12 +35,16 @@ function MyPage() {
         id: null,
         name: '사용자',
         email: 'user@example.com',
-        phoneNumber: ''
+        phoneNumber: '',
+        bojHandle: ''
     })
     const [editForm, setEditForm] = useState({
         name: '',
-        phoneNumber: ''
+        phoneNumber: '',
+        bojHandle: ''
     })
+    const [bojInfo, setBojInfo] = useState(null)
+    const [loadingBoj, setLoadingBoj] = useState(false)
 
     const stats = {
         totalStudyTime: '156시간',
@@ -56,29 +61,49 @@ function MyPage() {
         if (storedUser) {
             try {
                 const userData = JSON.parse(storedUser)
-                setUser({
+                const u = {
                     id: userData.id || null,
                     name: userData.name || '사용자',
                     email: userData.email || 'user@example.com',
-                    phoneNumber: userData.phoneNumber || ''
-                })
+                    phoneNumber: userData.phoneNumber || '',
+                    bojHandle: userData.bojHandle || ''
+                }
+                setUser(u)
+                if (u.bojHandle) {
+                    fetchBojInfo(u.bojHandle)
+                }
             } catch (e) {
                 console.error('Failed to parse user data:', e)
             }
         }
     }, [])
 
+    const fetchBojInfo = async (handle) => {
+        if (!handle) return
+        setLoadingBoj(true)
+        try {
+            const info = await solvedacService.getUserInfo(handle)
+            setBojInfo(info)
+        } catch (err) {
+            console.error('BOJ 정보 조회 실패:', err)
+            setBojInfo(null)
+        } finally {
+            setLoadingBoj(false)
+        }
+    }
+
     const handleEditClick = () => {
         setEditForm({
             name: user.name,
-            phoneNumber: user.phoneNumber
+            phoneNumber: user.phoneNumber,
+            bojHandle: user.bojHandle
         })
         setIsEditing(true)
     }
 
     const handleCancelEdit = () => {
         setIsEditing(false)
-        setEditForm({ name: '', phoneNumber: '' })
+        setEditForm({ name: '', phoneNumber: '', bojHandle: '' })
     }
 
     const handleInputChange = (e) => {
@@ -96,19 +121,26 @@ function MyPage() {
         try {
             const response = await userService.updateProfile({
                 name: editForm.name,
-                phoneNumber: editForm.phoneNumber
+                phoneNumber: editForm.phoneNumber,
+                bojHandle: editForm.bojHandle
             })
 
             if (response.success) {
                 const updatedUser = {
                     ...user,
                     name: editForm.name,
-                    phoneNumber: editForm.phoneNumber
+                    phoneNumber: editForm.phoneNumber,
+                    bojHandle: editForm.bojHandle
                 }
                 setUser(updatedUser)
                 localStorage.setItem('user', JSON.stringify(updatedUser))
                 success('프로필이 수정되었습니다')
                 setIsEditing(false)
+                if (editForm.bojHandle) {
+                    fetchBojInfo(editForm.bojHandle)
+                } else {
+                    setBojInfo(null)
+                }
             }
         } catch (err) {
             error('프로필 수정에 실패했습니다')
@@ -171,6 +203,17 @@ function MyPage() {
                                         value={editForm.phoneNumber}
                                         onChange={handleInputChange}
                                         placeholder="010-1234-5678"
+                                    />
+                                </div>
+                                <div className="edit-field">
+                                    <label>백준 아이디</label>
+                                    <input
+                                        type="text"
+                                        name="bojHandle"
+                                        className="input"
+                                        value={editForm.bojHandle}
+                                        onChange={handleInputChange}
+                                        placeholder="백준 아이디 입력"
                                     />
                                 </div>
                             </div>
@@ -258,6 +301,65 @@ function MyPage() {
                     </div>
                 </div>
             </div>
+
+            {/* BOJ Stats Section */}
+            {bojInfo && (
+                <section className="boj-stats-section card">
+                    <h2 className="section-title">🏆 백준 프로필</h2>
+                    <div className="boj-profile">
+                        {bojInfo.profileImageUrl && (
+                            <img
+                                src={bojInfo.profileImageUrl}
+                                alt={bojInfo.handle}
+                                className="boj-avatar"
+                            />
+                        )}
+                        <div className="boj-info">
+                            <h3 className="boj-handle">{bojInfo.handle}</h3>
+                            <span
+                                className="boj-tier-badge"
+                                style={{ background: bojInfo.tierColor }}
+                            >
+                                {bojInfo.tierName}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="boj-stats-grid">
+                        <div className="boj-stat">
+                            <span className="boj-stat-value">{bojInfo.solvedCount?.toLocaleString()}</span>
+                            <span className="boj-stat-label">풀이 수</span>
+                        </div>
+                        <div className="boj-stat">
+                            <span className="boj-stat-value">{bojInfo.rating}</span>
+                            <span className="boj-stat-label">레이팅</span>
+                        </div>
+                        <div className="boj-stat">
+                            <span className="boj-stat-value">Class {bojInfo.classNum}</span>
+                            <span className="boj-stat-label">클래스</span>
+                        </div>
+                        <div className="boj-stat">
+                            <span className="boj-stat-value">#{bojInfo.rank?.toLocaleString()}</span>
+                            <span className="boj-stat-label">랭킹</span>
+                        </div>
+                    </div>
+                    <a
+                        href={`https://solved.ac/profile/${bojInfo.handle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="boj-profile-link"
+                    >
+                        solved.ac에서 보기 →
+                    </a>
+                </section>
+            )}
+            {!bojInfo && !loadingBoj && user.bojHandle === '' && (
+                <section className="boj-empty-section card">
+                    <h2 className="section-title">🏆 백준 연동</h2>
+                    <p className="boj-empty-text">
+                        프로필 편집에서 백준 아이디를 입력하면 풀이 통계를 볼 수 있습니다.
+                    </p>
+                </section>
+            )}
 
             <div className="content-grid">
                 {/* Weekly Chart */}

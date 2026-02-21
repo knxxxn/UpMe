@@ -1,25 +1,10 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import CodeEditor from '../components/CodeEditor'
 import LoginPromptModal from '../components/LoginPromptModal'
 import { useAuth } from '../components/AuthContext'
+import solvedacService from '../services/solvedacService'
 import './CodingPage.css'
-
-// 샘플 문제 데이터
-const sampleProblem = {
-    id: 1,
-    title: '두 수의 합',
-    difficulty: 'Lv. 1',
-    description: `두 정수 a, b가 주어졌을 때, a와 b의 합을 return 하는 solution 함수를 완성해주세요.`,
-    constraints: [
-        '-100,000 ≤ a, b ≤ 100,000'
-    ],
-    examples: [
-        { input: 'a = 3, b = 5', output: '8' },
-        { input: 'a = -2, b = 7', output: '5' }
-    ],
-    exampleExplanation: '첫번째 예제에서 3 + 5 = 8이므로 8을 return 합니다.'
-}
 
 function CodingPage() {
     const { roomId } = useParams()
@@ -31,10 +16,33 @@ function CodingPage() {
     const [activeTab, setActiveTab] = useState('result')
     const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
+    // 문제 데이터 (solved.ac)
+    const [problem, setProblem] = useState(null)
+    const [loadingProblem, setLoadingProblem] = useState(true)
+    const [problemError, setProblemError] = useState(null)
+
     // Resizable panel state
     const [resultHeight, setResultHeight] = useState(250)
     const [isResizing, setIsResizing] = useState(false)
     const editorPanelRef = useRef(null)
+
+    useEffect(() => {
+        fetchProblem()
+    }, [roomId])
+
+    const fetchProblem = async () => {
+        setLoadingProblem(true)
+        setProblemError(null)
+        try {
+            const data = await solvedacService.getProblem(roomId)
+            setProblem(data)
+        } catch (err) {
+            console.error('문제 조회 실패:', err)
+            setProblemError('문제를 불러오는데 실패했습니다.')
+        } finally {
+            setLoadingProblem(false)
+        }
+    }
 
     // 코드 실행 - 비로그인도 가능
     const handleRun = async () => {
@@ -45,15 +53,13 @@ function CodingPage() {
         await new Promise(resolve => setTimeout(resolve, 1500))
 
         setResults([
-            { testCase: 1, input: 'a=3, b=5', expected: '8', actual: '8', passed: true },
-            { testCase: 2, input: 'a=-2, b=7', expected: '5', actual: '5', passed: true }
+            { testCase: 1, input: '실행 완료', expected: '-', actual: '-', passed: true },
         ])
         setIsRunning(false)
     }
 
     // 제출 - 로그인 필요
     const handleSubmit = async () => {
-        // 로그인 체크
         if (!isLoggedIn) {
             setShowLoginPrompt(true)
             return
@@ -65,11 +71,7 @@ function CodingPage() {
         await new Promise(resolve => setTimeout(resolve, 2000))
 
         setResults([
-            { testCase: 1, input: 'a=3, b=5', expected: '8', actual: '8', passed: true },
-            { testCase: 2, input: 'a=-2, b=7', expected: '5', actual: '5', passed: true },
-            { testCase: 3, input: '테스트 3', expected: '-', actual: '-', passed: true },
-            { testCase: 4, input: '테스트 4', expected: '-', actual: '-', passed: true },
-            { testCase: 5, input: '테스트 5', expected: '-', actual: '-', passed: true }
+            { testCase: 1, input: '테스트 1', expected: '-', actual: '-', passed: true },
         ])
         setIsRunning(false)
     }
@@ -108,56 +110,100 @@ function CodingPage() {
         <div className={`coding-page ${isResizing ? 'resizing' : ''}`}>
             {/* 좌측: 문제 설명 */}
             <div className="problem-panel">
-                <div className="problem-header">
-                    <span className="difficulty-badge">{sampleProblem.difficulty}</span>
-                    <h2 className="problem-title">{sampleProblem.title}</h2>
-                </div>
+                {loadingProblem ? (
+                    <div className="problem-loading">
+                        <div className="loading-spinner"></div>
+                        <p>문제를 불러오는 중...</p>
+                    </div>
+                ) : problemError ? (
+                    <div className="problem-error">
+                        <p>⚠️ {problemError}</p>
+                        <button className="btn btn-primary" onClick={fetchProblem}>다시 시도</button>
+                    </div>
+                ) : problem ? (
+                    <>
+                        <div className="problem-header">
+                            <span
+                                className="difficulty-badge"
+                                style={{ background: problem.tierColor }}
+                            >
+                                {problem.tierName}
+                            </span>
+                            <h2 className="problem-title">
+                                <span className="problem-number">#{problem.id}</span>
+                                {problem.title}
+                            </h2>
+                        </div>
 
-                <div className="problem-content">
-                    <section className="problem-section">
-                        <h3>문제 설명</h3>
-                        <p>{sampleProblem.description}</p>
-                    </section>
+                        <div className="problem-content">
+                            <section className="problem-section">
+                                <h3>📋 문제 정보</h3>
+                                <div className="problem-meta">
+                                    <div className="meta-item">
+                                        <span className="meta-label">난이도</span>
+                                        <span className="meta-value" style={{ color: problem.tierColor }}>
+                                            {problem.tierName}
+                                        </span>
+                                    </div>
+                                    <div className="meta-item">
+                                        <span className="meta-label">풀이 수</span>
+                                        <span className="meta-value">
+                                            {problem.solvedCount?.toLocaleString()}명
+                                        </span>
+                                    </div>
+                                    <div className="meta-item">
+                                        <span className="meta-label">평균 시도</span>
+                                        <span className="meta-value">
+                                            {problem.averageTries?.toFixed(1)}회
+                                        </span>
+                                    </div>
+                                </div>
+                            </section>
 
-                    <section className="problem-section">
-                        <h3>제한사항</h3>
-                        <ul className="constraints-list">
-                            {sampleProblem.constraints.map((constraint, idx) => (
-                                <li key={idx}>{constraint}</li>
-                            ))}
-                        </ul>
-                    </section>
+                            {problem.tags.length > 0 && (
+                                <section className="problem-section">
+                                    <h3>🏷️ 알고리즘 분류</h3>
+                                    <div className="problem-tags">
+                                        {problem.tags.map((tag, idx) => (
+                                            <span key={idx} className="algo-tag">{tag}</span>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
 
-                    <section className="problem-section">
-                        <h3>입출력 예</h3>
-                        <table className="examples-table">
-                            <thead>
-                                <tr>
-                                    <th>a</th>
-                                    <th>b</th>
-                                    <th>result</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>3</td>
-                                    <td>5</td>
-                                    <td>8</td>
-                                </tr>
-                                <tr>
-                                    <td>-2</td>
-                                    <td>7</td>
-                                    <td>5</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </section>
+                            <section className="problem-section">
+                                <h3>📖 문제 보기</h3>
+                                <p className="problem-desc-info">
+                                    문제의 전체 지문은 백준 사이트에서 확인해주세요.
+                                    이곳에서 코드를 작성하고, 백준에서 최종 제출하세요!
+                                </p>
+                                <a
+                                    href={problem.bojUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="boj-link-btn"
+                                >
+                                    🔗 백준에서 문제 보기 (#{problem.id})
+                                </a>
+                            </section>
 
-                    <section className="problem-section">
-                        <h3>입출력 예 설명</h3>
-                        <p>{sampleProblem.exampleExplanation}</p>
-                    </section>
-                </div>
+                            <section className="problem-section submit-section">
+                                <h3>📤 백준에 제출하기</h3>
+                                <p className="problem-desc-info">
+                                    코드 작성이 완료되면 백준 사이트에서 제출하세요.
+                                </p>
+                                <a
+                                    href={`https://www.acmicpc.net/submit/${problem.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="boj-submit-btn"
+                                >
+                                    🚀 백준에 제출하기
+                                </a>
+                            </section>
+                        </div>
+                    </>
+                ) : null}
             </div>
 
             {/* 우측: 코드 에디터 + 결과 */}

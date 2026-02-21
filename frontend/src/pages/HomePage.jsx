@@ -57,10 +57,10 @@ function HomePage() {
                     </p>
                     <div className="hero-buttons">
                         <Link to="/coding" className="btn btn-primary btn-lg">
-                            시작하기 🚀
+                            코딩 테스트 시작하기 🚀
                         </Link>
                         <Link to="/conversation" className="btn btn-secondary btn-lg">
-                            체험하기
+                            AI 회화 체험하기 🚀
                         </Link>
                     </div>
                 </div>

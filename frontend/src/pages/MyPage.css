@@ -351,6 +351,98 @@
     padding: 1.5rem;
 }
 
+/* BOJ Stats Section */
+.boj-stats-section,
+.boj-empty-section {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.boj-profile {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.boj-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--color-border);
+    object-fit: cover;
+}
+
+.boj-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.boj-handle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.boj-tier-badge {
+    display: inline-block;
+    padding: 0.2rem 0.625rem;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    width: fit-content;
+}
+
+.boj-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.boj-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem 0.5rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.boj-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.boj-stat-label {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+}
+
+.boj-profile-link {
+    display: inline-block;
+    color: var(--color-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.boj-profile-link:hover {
+    text-decoration: underline;
+}
+
+.boj-empty-text {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
 .withdraw-section {
     margin-top: 2rem;
     padding-top: 2rem;
