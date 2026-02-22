@@ -48,12 +48,22 @@ function MyPage() {
 
     const stats = {
         totalStudyTime: '156시간',
-        streak: '12일',
+        streak: 12,
         conversationCount: 45,
         codingCount: 78,
         accuracy: '89%',
         wordsLearned: 234
     }
+
+    const getRank = (streakDays) => {
+        if (streakDays >= 100) return { emoji: '👑', name: '레전드 (Legend)', badge: 'badge-error' }
+        if (streakDays >= 50) return { emoji: '🏅', name: '마스터 (Master)', badge: 'badge-warning' }
+        if (streakDays >= 30) return { emoji: '💎', name: '프로 (Pro)', badge: 'badge-success' }
+        if (streakDays >= 7) return { emoji: '🏃', name: '러너 (Runner)', badge: 'badge-primary' }
+        return { emoji: '🌱', name: '뉴비 (Newbie)', badge: 'badge' }
+    }
+
+    const rank = getRank(stats.streak)
 
     // Load user data from localStorage on mount
     useEffect(() => {
@@ -225,8 +235,8 @@ function MyPage() {
                                     <p className="profile-phone">{user.phoneNumber}</p>
                                 )}
                                 <div className="profile-badges">
-                                    <span className="badge badge-primary">🔥 12일 연속</span>
-                                    <span className="badge badge-success">💎 프로</span>
+                                    <span className="badge badge-primary">🔥 {stats.streak}일 연속</span>
+                                    <span className={`badge ${rank.badge}`}>{rank.emoji} {rank.name}</span>
                                 </div>
                             </>
                         )}
@@ -268,7 +278,7 @@ function MyPage() {
                 <div className="stat-card">
                     <span className="stat-icon">🔥</span>
                     <div className="stat-info">
-                        <span className="stat-value">{stats.streak}</span>
+                        <span className="stat-value">{stats.streak}일</span>
                         <span className="stat-label">연속 학습</span>
                     </div>
                 </div>

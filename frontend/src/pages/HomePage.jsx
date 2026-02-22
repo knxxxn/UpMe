@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import './HomePage.css'
 
@@ -40,6 +41,13 @@ const stats = [
 ]
 
 function HomePage() {
+    const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+    useEffect(() => {
+        const user = localStorage.getItem('user')
+        setIsLoggedIn(!!user)
+    }, [])
+
     return (
         <div className="home-page animate-fade-in">
             {/* Hero Section */}
@@ -51,7 +59,7 @@ function HomePage() {
                         성장하세요
                     </h1>
                     <p className="hero-description">
-                        AI 기반 회화 연습과 코딩 테스트로 실력을 향상시키세요.
+                        AI 기반 영어 회화 연습과 코딩 테스트로 실력을 향상시키세요.
                         <br />
                         매일 조금씩, 꾸준히 성장하는 당신을 응원합니다.
                     </p>
@@ -59,7 +67,7 @@ function HomePage() {
                         <Link to="/coding" className="btn btn-primary btn-lg">
                             코딩 테스트 시작하기 🚀
                         </Link>
-                        <Link to="/conversation" className="btn btn-secondary btn-lg">
+                        <Link to="/conversation" className="btn btn-primary btn-lg">
                             AI 회화 체험하기 🚀
                         </Link>
                     </div>
@@ -111,16 +119,18 @@ function HomePage() {
                 </div>
             </section>
 
-            {/* CTA Section */}
-            <section className="cta-section">
-                <div className="cta-content">
-                    <h2>지금 바로 시작하세요!</h2>
-                    <p>무료로 가입하고 AI와 함께 학습을 시작하세요</p>
-                    <Link to="/register" className="btn btn-primary btn-lg">
-                        무료 가입하기
-                    </Link>
-                </div>
-            </section>
+            {/* CTA Section - 비로그인 시에만 표시 */}
+            {!isLoggedIn && (
+                <section className="cta-section">
+                    <div className="cta-content">
+                        <h2>지금 바로 시작하세요!</h2>
+                        <p>무료로 가입하고 AI와 함께 학습을 시작하세요</p>
+                        <Link to="/register" className="btn btn-primary btn-lg">
+                            무료 가입하기
+                        </Link>
+                    </div>
+                </section>
+            )}
         </div>
     )
 }

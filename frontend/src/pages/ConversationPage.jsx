@@ -74,7 +74,7 @@ function ConversationPage() {
             {!isLoggedIn && (
                 <section className="login-cta-section">
                     <div className="login-cta-card">
-                        <span className="login-cta-icon">🔓</span>
+                        <span className="login-cta-icon">🔒</span>
                         <h3>로그인하고 더 많은 기능을 이용하세요</h3>
                         <p>대화 기록 저장 • 학습 통계 확인 • 무제한 회화</p>
                         <div className="login-cta-buttons">

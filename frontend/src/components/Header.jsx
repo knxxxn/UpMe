@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import authService from '../services/authService'
+import ThemeToggle from './ThemeToggle'
 import './Header.css'
 
 function Header() {
@@ -52,20 +53,7 @@ function Header() {
             </div>
 
             <div className="header-right">
-                <div className="search-box">
-                    <span className="search-icon">🔍</span>
-                    <input
-                        type="text"
-                        placeholder="검색..."
-                        className="search-input"
-                    />
-                </div>
-
-                <button className="icon-btn notification-btn" aria-label="알림">
-                    <span>🔔</span>
-                    <span className="notification-badge">3</span>
-                </button>
-
+                <ThemeToggle />
                 {user ? (
                     <div className="user-menu">
                         <span className="user-greeting">{user.name}님</span>

@@ -32,7 +32,8 @@ const menuItems = [
     {
         path: '/mypage',
         icon: '👤',
-        label: '마이페이지'
+        label: '마이페이지',
+        requiresAuth: true
     }
 ]
 
@@ -59,6 +60,13 @@ function Sidebar() {
         navigate('/login')
     }
 
+    const handleNavClick = (e, item) => {
+        if (item.requiresAuth && !user) {
+            e.preventDefault()
+            navigate('/login')
+        }
+    }
+
     return (
         <aside className="sidebar">
             <div className="sidebar-header">
@@ -77,6 +85,7 @@ function Sidebar() {
                                 className={({ isActive }) =>
                                     `nav-item ${isActive ? 'active' : ''}`
                                 }
+                                onClick={(e) => handleNavClick(e, item)}
                             >
                                 <span className="nav-icon">{item.icon}</span>
                                 <span className="nav-label">{item.label}</span>

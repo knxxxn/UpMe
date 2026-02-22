@@ -49,7 +49,7 @@ function WordBookPage() {
     return (
         <div className="wordbook-page animate-fade-in">
             <div className="page-header">
-                <h1>📚 단어장</h1>
+                <h1>📚 나만의 단어장 📚</h1>
                 <p>저장한 단어들을 복습하세요</p>
             </div>
 
