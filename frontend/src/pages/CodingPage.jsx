@@ -4,6 +4,7 @@ import CodeEditor from '../components/CodeEditor'
 import LoginPromptModal from '../components/LoginPromptModal'
 import { useAuth } from '../components/AuthContext'
 import solvedacService from '../services/solvedacService'
+import codingService from '../services/codingService'
 import './CodingPage.css'
 
 function CodingPage() {
@@ -15,6 +16,11 @@ function CodingPage() {
     const [isRunning, setIsRunning] = useState(false)
     const [activeTab, setActiveTab] = useState('result')
     const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+
+    // AI 피드백 state
+    const [aiFeedback, setAiFeedback] = useState(null)
+    const [isFeedbackLoading, setIsFeedbackLoading] = useState(false)
+    const [feedbackError, setFeedbackError] = useState(null)
 
     // 문제 데이터 (solved.ac)
     const [problem, setProblem] = useState(null)
@@ -58,22 +64,46 @@ function CodingPage() {
         setIsRunning(false)
     }
 
-    // 제출 - 로그인 필요
-    const handleSubmit = async () => {
+    // AI 피드백 - 로그인 필요
+    const handleAIFeedback = async () => {
         if (!isLoggedIn) {
             setShowLoginPrompt(true)
             return
         }
 
-        setIsRunning(true)
-        setActiveTab('result')
+        if (!code.trim()) {
+            setFeedbackError('코드를 먼저 작성해주세요.')
+            setActiveTab('feedback')
+            return
+        }
 
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        setIsFeedbackLoading(true)
+        setFeedbackError(null)
+        setAiFeedback(null)
+        setActiveTab('feedback')
 
-        setResults([
-            { testCase: 1, input: '테스트 1', expected: '-', actual: '-', passed: true },
-        ])
-        setIsRunning(false)
+        try {
+            const result = await codingService.getAIFeedback(
+                code,
+                language,
+                problem?.id || 0,
+                problem?.title || '알 수 없는 문제'
+            )
+            console.log('AI 피드백 응답:', result)
+            setAiFeedback(result)
+        } catch (err) {
+            console.error('AI 피드백 에러:', err)
+            const status = err.response?.status
+            if (status === 401 || status === 403) {
+                setFeedbackError('로그인 후 다시 시도해주세요.')
+            } else if (err.code === 'ECONNABORTED') {
+                setFeedbackError('AI 응답 시간이 초과되었습니다. 다시 시도해주세요.')
+            } else {
+                setFeedbackError('AI 피드백을 받는 중 오류가 발생했습니다. 다시 시도해주세요.')
+            }
+        } finally {
+            setIsFeedbackLoading(false)
+        }
     }
 
     // Handle resize start
@@ -237,10 +267,83 @@ function CodingPage() {
                         >
                             출력
                         </button>
+                        <button
+                            className={`result-tab ${activeTab === 'feedback' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('feedback')}
+                        >
+                            🤖 AI 피드백
+                        </button>
                     </div>
 
                     <div className="result-content">
-                        {isRunning ? (
+                        {activeTab === 'feedback' ? (
+                            <div className="ai-feedback-content">
+                                {isFeedbackLoading ? (
+                                    <div className="feedback-loading">
+                                        <div className="spinner"></div>
+                                        <span>AI가 코드를 분석하고 있습니다...</span>
+                                    </div>
+                                ) : feedbackError ? (
+                                    <div className="feedback-error">
+                                        <span>⚠️ {feedbackError}</span>
+                                    </div>
+                                ) : aiFeedback ? (
+                                    <div className="feedback-cards">
+                                        <div className="feedback-card feedback-summary">
+                                            <div className="feedback-card-header">
+                                                <span className="feedback-icon">📝</span>
+                                                <span className="feedback-label">전체 평가</span>
+                                            </div>
+                                            <p>{aiFeedback.summary}</p>
+                                        </div>
+
+                                        {aiFeedback.strengths && (
+                                            <div className="feedback-card feedback-strengths">
+                                                <div className="feedback-card-header">
+                                                    <span className="feedback-icon">✅</span>
+                                                    <span className="feedback-label">잘한 점</span>
+                                                </div>
+                                                <p>{aiFeedback.strengths}</p>
+                                            </div>
+                                        )}
+
+                                        {aiFeedback.improvements && (
+                                            <div className="feedback-card feedback-improvements">
+                                                <div className="feedback-card-header">
+                                                    <span className="feedback-icon">💡</span>
+                                                    <span className="feedback-label">개선 제안</span>
+                                                </div>
+                                                <p>{aiFeedback.improvements}</p>
+                                            </div>
+                                        )}
+
+                                        {aiFeedback.timeComplexity && (
+                                            <div className="feedback-card feedback-complexity">
+                                                <div className="feedback-card-header">
+                                                    <span className="feedback-icon">⏱️</span>
+                                                    <span className="feedback-label">복잡도 분석</span>
+                                                </div>
+                                                <p>{aiFeedback.timeComplexity}</p>
+                                            </div>
+                                        )}
+
+                                        {aiFeedback.tips && (
+                                            <div className="feedback-card feedback-tips">
+                                                <div className="feedback-card-header">
+                                                    <span className="feedback-icon">📚</span>
+                                                    <span className="feedback-label">학습 팁</span>
+                                                </div>
+                                                <p>{aiFeedback.tips}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="empty-result">
+                                        <span>🤖 AI 피드백 버튼을 눌러 코드 리뷰를 받아보세요</span>
+                                    </div>
+                                )}
+                            </div>
+                        ) : isRunning ? (
                             <div className="running-indicator">
                                 <div className="spinner"></div>
                                 <span>실행 중...</span>
@@ -282,16 +385,16 @@ function CodingPage() {
                         <button
                             className="btn btn-secondary"
                             onClick={handleRun}
-                            disabled={isRunning}
+                            disabled={isRunning || isFeedbackLoading}
                         >
                             ▶ 코드 실행
                         </button>
                         <button
-                            className="btn btn-success"
-                            onClick={handleSubmit}
-                            disabled={isRunning}
+                            className="btn btn-ai-feedback"
+                            onClick={handleAIFeedback}
+                            disabled={isRunning || isFeedbackLoading}
                         >
-                            제출 후 채점하기
+                            {isFeedbackLoading ? '🔄 분석 중...' : '🤖 AI 피드백'}
                         </button>
                     </div>
                 </div>
@@ -301,8 +404,8 @@ function CodingPage() {
             <LoginPromptModal
                 isOpen={showLoginPrompt}
                 onClose={() => setShowLoginPrompt(false)}
-                feature="채점 결과 저장"
-                message="채점 결과를 저장하고 학습 통계를 확인하려면 로그인이 필요합니다."
+                feature="AI 코드 피드백"
+                message="AI 코드 피드백을 받으려면 로그인이 필요합니다."
             />
         </div>
     )

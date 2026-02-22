@@ -146,6 +146,26 @@ const codingService = {
             submissions: [],
         };
     },
+
+    /**
+     * AI 코드 피드백 요청
+     * @param {string} code - 사용자가 작성한 코드
+     * @param {string} language - 프로그래밍 언어
+     * @param {number} problemId - 문제 번호
+     * @param {string} problemTitle - 문제 제목
+     * @returns {Promise} AI 피드백 결과 { summary, strengths, improvements, timeComplexity, tips }
+     */
+    async getAIFeedback(code, language, problemId, problemTitle) {
+        const response = await api.post('/code-review', {
+            code,
+            language,
+            problemId,
+            problemTitle,
+        }, {
+            timeout: 30000, // AI 분석은 시간이 걸릴 수 있으므로 30초
+        });
+        return response.data;
+    },
 };
 
 export default codingService;
