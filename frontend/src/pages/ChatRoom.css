@@ -133,6 +133,19 @@
     padding: 0 0.5rem;
 }
 
+/* Feedback Messages */
+.message.feedback .message-avatar {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.feedback-content .message-text {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.05)) !important;
+    border-left: 3px solid #f59e0b;
+    border-bottom-left-radius: var(--radius-sm) !important;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary) !important;
+}
+
 /* Typing Indicator */
 .typing-indicator {
     display: flex;
