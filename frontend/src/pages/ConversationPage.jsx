@@ -1,5 +1,7 @@
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../components/AuthContext'
+import conversationService from '../services/conversationService'
 import './ConversationPage.css'
 
 const topics = [
@@ -11,14 +13,75 @@ const topics = [
     { id: 6, title: '자유 주제', description: '원하는 주제로 대화하기', icon: '🎨', color: '#ec4899' },
 ]
 
-const recentChats = [
-    { id: 'r1', title: '여행 계획 이야기', lastMessage: 'That sounds like a great trip!', time: '2시간 전' },
-    { id: 'r2', title: '일상 대화 연습', lastMessage: 'How was your weekend?', time: '어제' },
-    { id: 'r3', title: '면접 연습', lastMessage: 'Tell me about yourself.', time: '3일 전' },
-]
+const topicIcons = { 1: '☕', 2: '✈️', 3: '💼', 4: '🎯', 5: '💻', 6: '🎨' }
 
 function ConversationPage() {
     const { isLoggedIn } = useAuth()
+    const navigate = useNavigate()
+    const [recentChats, setRecentChats] = useState([])
+    const [loadingChats, setLoadingChats] = useState(false)
+
+    useEffect(() => {
+        if (isLoggedIn) {
+            fetchConversations()
+        }
+    }, [isLoggedIn])
+
+    const fetchConversations = async () => {
+        setLoadingChats(true)
+        try {
+            const data = await conversationService.getConversations()
+            setRecentChats(data)
+        } catch (err) {
+            console.error('대화 목록 조회 실패:', err)
+        } finally {
+            setLoadingChats(false)
+        }
+    }
+
+    // 로그인 사용자: 새 대화 생성 후 채팅방 이동
+    const handleTopicClick = async (topicId) => {
+        if (!isLoggedIn) {
+            // 비로그인: 기존 체험 모드 (topicId로 이동)
+            navigate(`/conversation/${topicId}`)
+            return
+        }
+
+        try {
+            const result = await conversationService.createConversation(topicId)
+            navigate(`/conversation/c-${result.id}`)
+        } catch (err) {
+            console.error('대화 생성 실패:', err)
+            // 실패 시 기존 방식으로 이동
+            navigate(`/conversation/${topicId}`)
+        }
+    }
+
+    const handleDeleteChat = async (e, chatId) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!window.confirm('이 대화를 삭제하시겠습니까?')) return
+
+        try {
+            await conversationService.deleteConversation(chatId)
+            setRecentChats(prev => prev.filter(c => c.id !== chatId))
+        } catch (err) {
+            console.error('대화 삭제 실패:', err)
+        }
+    }
+
+    const formatTime = (dateStr) => {
+        const date = new Date(dateStr)
+        const now = new Date()
+        const diffMs = now - date
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+        if (diffHours < 1) return '방금 전'
+        if (diffHours < 24) return `${diffHours}시간 전`
+        if (diffDays < 7) return `${diffDays}일 전`
+        return date.toLocaleDateString('ko-KR')
+    }
 
     return (
         <div className="conversation-page animate-fade-in">
@@ -37,16 +100,16 @@ function ConversationPage() {
                 <h2 className="section-title">주제 선택</h2>
                 <div className="topics-grid">
                     {topics.map((topic) => (
-                        <Link
+                        <div
                             key={topic.id}
-                            to={`/conversation/${topic.id}`}
                             className="topic-card"
                             style={{ '--accent-color': topic.color }}
+                            onClick={() => handleTopicClick(topic.id)}
                         >
                             <span className="topic-icon">{topic.icon}</span>
                             <h3 className="topic-title">{topic.title}</h3>
                             <p className="topic-description">{topic.description}</p>
-                        </Link>
+                        </div>
                     ))}
                 </div>
             </section>
@@ -55,18 +118,34 @@ function ConversationPage() {
             {isLoggedIn && (
                 <section className="recent-section">
                     <h2 className="section-title">최근 대화</h2>
-                    <div className="recent-list">
-                        {recentChats.map((chat) => (
-                            <Link key={chat.id} to={`/conversation/${chat.id}`} className="recent-item">
-                                <div className="recent-avatar">💬</div>
-                                <div className="recent-content">
-                                    <h4 className="recent-title">{chat.title}</h4>
-                                    <p className="recent-message">{chat.lastMessage}</p>
-                                </div>
-                                <span className="recent-time">{chat.time}</span>
-                            </Link>
-                        ))}
-                    </div>
+                    {loadingChats ? (
+                        <div className="recent-loading">대화 목록을 불러오는 중...</div>
+                    ) : recentChats.length > 0 ? (
+                        <div className="recent-list">
+                            {recentChats.map((chat) => (
+                                <Link key={chat.id} to={`/conversation/c-${chat.id}`} className="recent-item">
+                                    <div className="recent-avatar">
+                                        {topicIcons[chat.topicId] || '💬'}
+                                    </div>
+                                    <div className="recent-content">
+                                        <h4 className="recent-title">{chat.title}</h4>
+                                        <p className="recent-message">{formatTime(chat.updatedAt)}</p>
+                                    </div>
+                                    <button
+                                        className="recent-delete-btn"
+                                        onClick={(e) => handleDeleteChat(e, chat.id)}
+                                        title="대화 삭제"
+                                    >
+                                        🗑️
+                                    </button>
+                                </Link>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="recent-empty">
+                            <p>아직 저장된 대화가 없습니다. 토픽을 선택하여 대화를 시작해보세요!</p>
+                        </div>
+                    )}
                 </section>
             )}
 

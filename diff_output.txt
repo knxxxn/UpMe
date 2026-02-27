@@ -1,0 +1,1017 @@
+﻿diff --git a/backend/src/main/java/com/upme/controller/UserController.java b/backend/src/main/java/com/upme/controller/UserController.java
+index bdeacda..7c132c3 100644
+--- a/backend/src/main/java/com/upme/controller/UserController.java
++++ b/backend/src/main/java/com/upme/controller/UserController.java
+@@ -2,6 +2,9 @@ package com.upme.controller;
+ 
+ import com.upme.model.User;
+ import com.upme.repository.UserRepository;
++import com.upme.repository.UserActivityRepository;
++import com.upme.repository.SavedWordRepository;
++import com.upme.repository.ConversationRepository;
+ import lombok.RequiredArgsConstructor;
+ import lombok.extern.slf4j.Slf4j;
+ import org.springframework.http.ResponseEntity;
+@@ -9,6 +12,7 @@ import org.springframework.security.core.Authentication;
+ import org.springframework.security.crypto.password.PasswordEncoder;
+ import org.springframework.web.bind.annotation.*;
+ 
++import java.util.List;
+ import java.util.Map;
+ 
+ @Slf4j
+@@ -19,6 +23,9 @@ public class UserController {
+ 
+         private final UserRepository userRepository;
+         private final PasswordEncoder passwordEncoder;
++        private final UserActivityRepository userActivityRepository;
++        private final SavedWordRepository savedWordRepository;
++        private final ConversationRepository conversationRepository;
+ 
+         /**
+          * ?꾨줈??議고쉶
+@@ -162,9 +169,134 @@ public class UserController {
+                 Long userId = (Long) authentication.getPrincipal();
+                 log.info("?쒕룞 ?댁뿭 議고쉶: userId={}", userId);
+ 
+-                // TODO: ?쒕룞 ?댁뿭 ?뚯씠釉??앹꽦 ???ㅼ젣 議고쉶 援ы쁽
++                List<com.upme.model.UserActivity> activities = userActivityRepository
++                                .findByUserIdOrderByCreatedAtDesc(userId);
++
++                // 理쒓렐 10媛쒕줈 ?쒗븳
++                if (activities.size() > 10) {
++                        activities = activities.subList(0, 10);
++                }
++
++                List<Map<String, Object>> activityList = activities.stream().map(a -> {
++                        Map<String, Object> map = new java.util.HashMap<>();
++                        map.put("id", a.getId());
++                        map.put("type", a.getActivityType());
++                        map.put("title", a.getTitle());
++
++                        if ("coding".equals(a.getActivityType())) {
++                                map.put("result", a.getDetail());
++                        } else if ("conversation".equals(a.getActivityType())) {
++                                map.put("duration", a.getDetail());
++                        } else if ("word".equals(a.getActivityType())) {
++                                map.put("count", a.getDetail());
++                        } else {
++                                map.put("detail", a.getDetail());
++                        }
++
++                        map.put("time", a.getCreatedAt() != null ? a.getCreatedAt().toString() : "");
++                        return map;
++                }).toList();
++
++                return ResponseEntity.ok(Map.of("recentActivity", activityList));
++        }
++
++        /**
++         * ?듦퀎 議고쉶
++         * GET /api/users/stats
++         */
++        @GetMapping("/stats")
++        public ResponseEntity<Map<String, Object>> getUserStats(Authentication authentication) {
++                Long userId = (Long) authentication.getPrincipal();
++                log.info("?듦퀎 議고쉶: userId={}", userId);
++
++                List<com.upme.model.UserActivity> activities = userActivityRepository
++                                .findByUserIdOrderByCreatedAtDesc(userId);
++                int savedWordsCount = savedWordRepository.countByUserId(userId);
++                int conversationCount = conversationRepository.countByUserId(userId);
++
++                int codingCount = 0;
++                int codingPassedCount = 0;
++                int totalStudyTimeMinutes = 0;
++
++                java.util.Set<java.time.LocalDate> activityDates = new java.util.HashSet<>();
++
++                java.time.LocalDate today = java.time.LocalDate.now();
++                java.time.LocalDate oneWeekAgo = today.minusDays(6);
++
++                Map<java.time.DayOfWeek, Double> weeklyHoursMap = new java.util.EnumMap<>(java.time.DayOfWeek.class);
++                for (java.time.DayOfWeek day : java.time.DayOfWeek.values()) {
++                        weeklyHoursMap.put(day, 0.0);
++                }
++
++                for (com.upme.model.UserActivity activity : activities) {
++                        if (activity.getStudyTimeMinutes() != null) {
++                                totalStudyTimeMinutes += activity.getStudyTimeMinutes();
++                        }
++
++                        if ("coding".equals(activity.getActivityType())) {
++                                codingCount++;
++                                if ("?듦낵".equals(activity.getDetail())) {
++                                        codingPassedCount++;
++                                }
++                        }
++
++                        if (activity.getCreatedAt() != null) {
++                                java.time.LocalDate date = activity.getCreatedAt().toLocalDate();
++                                activityDates.add(date);
++
++                                if (!date.isBefore(oneWeekAgo) && !date.isAfter(today)) {
++                                        double hours = weeklyHoursMap.get(date.getDayOfWeek());
++                                        int mins = activity.getStudyTimeMinutes() != null
++                                                        ? activity.getStudyTimeMinutes()
++                                                        : 0;
++                                        weeklyHoursMap.put(date.getDayOfWeek(), hours + (mins / 60.0));
++                                }
++                        }
++                }
++
++                String accuracy = "0%";
++                if (codingCount > 0) {
++                        int acc = (int) Math.round(((double) codingPassedCount / codingCount) * 100);
++                        accuracy = acc + "%";
++                }
++
++                int streak = 0;
++                java.time.LocalDate checkDate = today;
++                while (activityDates.contains(checkDate)) {
++                        streak++;
++                        checkDate = checkDate.minusDays(1);
++                }
++
++                if (streak == 0 && activityDates.contains(today.minusDays(1))) {
++                        streak = 1;
++                        checkDate = today.minusDays(2);
++                        while (activityDates.contains(checkDate)) {
++                                streak++;
++                                checkDate = checkDate.minusDays(1);
++                        }
++                }
++
++                String totalStudyTime = (totalStudyTimeMinutes / 60) + "?쒓컙";
++
++                List<Map<String, Object>> weeklyData = new java.util.ArrayList<>();
++                String[] dayNames = { "", "??, "??, "??, "紐?, "湲?, "??, "?? };
++                for (int i = 1; i <= 7; i++) {
++                        java.time.DayOfWeek dow = java.time.DayOfWeek.of(i);
++                        double hours = Math.round(weeklyHoursMap.get(dow) * 10.0) / 10.0;
++                        weeklyData.add(Map.of("day", dayNames[i], "hours", hours));
++                }
++
++                Map<String, Object> stats = new java.util.HashMap<>();
++                stats.put("totalStudyTime", totalStudyTime);
++                stats.put("streak", streak);
++                stats.put("conversationCount", conversationCount);
++                stats.put("codingCount", codingCount);
++                stats.put("codingPassedCount", codingPassedCount);
++                stats.put("accuracy", accuracy);
++                stats.put("wordsLearned", savedWordsCount);
++
+                 return ResponseEntity.ok(Map.of(
+-                                "recentSubmissions", java.util.List.of(),
+-                                "recentConversations", java.util.List.of()));
++                                "stats", stats,
++                                "weeklyData", weeklyData));
+         }
+ }
+diff --git a/backend/src/main/java/com/upme/controller/WordController.java b/backend/src/main/java/com/upme/controller/WordController.java
+index 554b0d2..b8cb6e0 100644
+--- a/backend/src/main/java/com/upme/controller/WordController.java
++++ b/backend/src/main/java/com/upme/controller/WordController.java
+@@ -111,7 +111,7 @@ public class WordController {
+         List<Map<String, Object>> result = savedWords.stream()
+                 .map(sw -> {
+                     Map<String, Object> map = wordToMap(sw.getWord());
+-                    map.put("savedAt", sw.getSavedAt().toString());
++                    map.put("savedAt", sw.getSavedAt() != null ? sw.getSavedAt().toString() : "");
+                     return map;
+                 })
+                 .collect(Collectors.toList());
+diff --git a/backend/src/main/java/com/upme/repository/SavedWordRepository.java b/backend/src/main/java/com/upme/repository/SavedWordRepository.java
+index 2efb99d..4d309a9 100644
+--- a/backend/src/main/java/com/upme/repository/SavedWordRepository.java
++++ b/backend/src/main/java/com/upme/repository/SavedWordRepository.java
+@@ -13,5 +13,7 @@ public interface SavedWordRepository extends JpaRepository<SavedWord, Long> {
+ 
+     boolean existsByUserIdAndWordId(Long userId, Long wordId);
+ 
++    int countByUserId(Long userId);
++
+     void deleteByUserIdAndWordId(Long userId, Long wordId);
+ }
+diff --git a/frontend/src/components/Sidebar.jsx b/frontend/src/components/Sidebar.jsx
+index aab92a1..52051ff 100644
+--- a/frontend/src/components/Sidebar.jsx
++++ b/frontend/src/components/Sidebar.jsx
+@@ -1,6 +1,5 @@
+-import { useState, useEffect } from 'react'
+-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+-import authService from '../services/authService'
++import { NavLink, useNavigate } from 'react-router-dom'
++import { useAuth } from './AuthContext'
+ import './Sidebar.css'
+ 
+ const menuItems = [
+@@ -38,30 +37,16 @@ const menuItems = [
+ ]
+ 
+ function Sidebar() {
+-    const location = useLocation()
+     const navigate = useNavigate()
+-    const [user, setUser] = useState(null)
+-
+-    useEffect(() => {
+-        // localStorage?먯꽌 ?ъ슜???뺣낫 ?뺤씤
+-        const storedUser = localStorage.getItem('user')
+-        if (storedUser) {
+-            try {
+-                setUser(JSON.parse(storedUser))
+-            } catch (e) {
+-                setUser(null)
+-            }
+-        }
+-    }, [location]) // location??諛붾??뚮쭏??泥댄겕 (濡쒓렇????由щ떎?대젆????
++    const { isLoggedIn, user, logout } = useAuth()
+ 
+     const handleLogout = async () => {
+-        await authService.logout()
+-        setUser(null)
++        logout()
+         navigate('/login')
+     }
+ 
+     const handleNavClick = (e, item) => {
+-        if (item.requiresAuth && !user) {
++        if (item.requiresAuth && !isLoggedIn) {
+             e.preventDefault()
+             navigate('/login')
+         }
+@@ -96,7 +81,7 @@ function Sidebar() {
+             </nav>
+ 
+             <div className="sidebar-footer">
+-                {user ? (
++                {isLoggedIn && user ? (
+                     <div className="user-card">
+                         <div className="user-avatar">{user.name?.charAt(0) || 'U'}</div>
+                         <div className="user-info">
+@@ -121,4 +106,3 @@ function Sidebar() {
+ }
+ 
+ export default Sidebar
+-
+diff --git a/frontend/src/pages/ChatRoom.css b/frontend/src/pages/ChatRoom.css
+index 2d27757..efe5076 100644
+--- a/frontend/src/pages/ChatRoom.css
++++ b/frontend/src/pages/ChatRoom.css
+@@ -269,4 +269,21 @@
+     .message {
+         max-width: 90%;
+     }
++}
++
++/* Save badge */
++.save-badge {
++    font-size: 0.7rem;
++    opacity: 0.8;
++}
++
++/* Messages loading */
++.messages-loading {
++    display: flex;
++    flex-direction: column;
++    align-items: center;
++    gap: 1rem;
++    padding: 3rem;
++    color: var(--color-text-muted);
++    font-size: 0.875rem;
+ }
+\ No newline at end of file
+diff --git a/frontend/src/pages/ChatRoom.jsx b/frontend/src/pages/ChatRoom.jsx
+index 7eed4cb..2888467 100644
+--- a/frontend/src/pages/ChatRoom.jsx
++++ b/frontend/src/pages/ChatRoom.jsx
+@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom'
+ import LoginPromptModal from '../components/LoginPromptModal'
+ import { useAuth } from '../components/AuthContext'
+ import axios from 'axios'
++import conversationService from '../services/conversationService'
+ import './ChatRoom.css'
+ 
+-// Gemini API??蹂꾨룄 axios ?몄뒪?댁뒪 (??꾩븘??30珥?
++// Gemini API??蹂꾨룄 axios ?몄뒪?댁뒪 (??꾩븘??30珥? - 鍮꾨줈洹몄씤 泥댄뿕?? const chatApi = axios.create({
+     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+     timeout: 30000,
+@@ -26,23 +27,22 @@ const topics = {
+ function ChatRoom() {
+     const { roomId } = useParams()
+     const { isLoggedIn } = useAuth()
+-    const topicId = parseInt(roomId) || 6
+-    const topicName = topics[topicId] || '?먯쑀 二쇱젣'
+-
+-    const [messages, setMessages] = useState([
+-        {
+-            id: 1,
+-            role: 'ai',
+-            content: `Hello! I'm your AI conversation partner. Let's practice English together! Today's topic is "${topicName}". What would you like to talk about?`,
+-            timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+-        }
+-    ])
++
++    // DB 湲곕컲 ??붿씤吏 泥댄뿕 紐⑤뱶?몄? 援щ텇
++    const isDbMode = roomId?.startsWith('c-')
++    const conversationId = isDbMode ? parseInt(roomId.replace('c-', '')) : null
++    const topicId = isDbMode ? null : (parseInt(roomId) || 6)
++    const topicName = isDbMode ? '' : (topics[topicId] || '?먯쑀 二쇱젣')
++
++    const [messages, setMessages] = useState([])
+     const [input, setInput] = useState('')
+     const [isTyping, setIsTyping] = useState(false)
+     const [guestMessageCount, setGuestMessageCount] = useState(0)
+     const [showLoginPrompt, setShowLoginPrompt] = useState(false)
++    const [chatTopicName, setChatTopicName] = useState(topicName)
++    const [loadingMessages, setLoadingMessages] = useState(false)
+     const messagesEndRef = useRef(null)
+-    const isRequestInFlight = useRef(false) // 以묐났 ?붿껌 諛⑹?
++    const isRequestInFlight = useRef(false)
+ 
+     const scrollToBottom = () => {
+         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+@@ -52,12 +52,70 @@ function ChatRoom() {
+         scrollToBottom()
+     }, [messages])
+ 
++    // DB 紐⑤뱶: ?댁쟾 硫붿떆吏 濡쒕뱶
++    useEffect(() => {
++        if (isDbMode && conversationId) {
++            loadMessages()
++        } else {
++            // 泥댄뿕 紐⑤뱶: 珥덇린 ?몄궗 硫붿떆吏
++            setMessages([{
++                id: 1,
++                role: 'ai',
++                content: `Hello! I'm your AI conversation partner. Let's practice English together! Today's topic is "${topicName}". What would you like to talk about?`,
++                timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
++            }])
++        }
++    }, [roomId])
++
++    const loadMessages = async () => {
++        setLoadingMessages(true)
++        try {
++            const data = await conversationService.getMessages(conversationId)
++            const loadedMessages = data.map(m => ({
++                id: m.id,
++                role: m.role,
++                content: m.content,
++                type: m.feedback ? undefined : undefined,
++                timestamp: new Date(m.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
++                feedback: m.feedback,
++            }))
++
++            // ?쇰뱶諛깆씠 ?덈뒗 AI 硫붿떆吏??蹂꾨룄 ?쇰뱶諛?硫붿떆吏濡?遺꾨━
++            const expandedMessages = []
++            loadedMessages.forEach(m => {
++                expandedMessages.push(m)
++                if (m.role === 'ai' && m.feedback && m.feedback.trim()) {
++                    expandedMessages.push({
++                        id: m.id + 0.5,
++                        role: 'ai',
++                        type: 'feedback',
++                        content: m.feedback,
++                        timestamp: m.timestamp,
++                    })
++                }
++            })
++
++            setMessages(expandedMessages)
++
++            // 泥?硫붿떆吏?먯꽌 ?좏뵿 ?대쫫 異붿텧
++            if (data.length > 0) {
++                const firstMsg = data[0].content
++                const topicMatch = firstMsg.match(/topic is "([^"]+)"/)
++                if (topicMatch) setChatTopicName(topicMatch[1])
++            }
++        } catch (err) {
++            console.error('硫붿떆吏 濡쒕뱶 ?ㅽ뙣:', err)
++        } finally {
++            setLoadingMessages(false)
++        }
++    }
++
+     /**
+      * ????덉뒪?좊━瑜?諛깆뿏??API ?뺤떇?쇰줈 蹂??      */
+     const buildHistory = () => {
+         return messages
+-            .filter(m => m.type !== 'feedback') // ?쇰뱶諛?硫붿떆吏???덉뒪?좊━?먯꽌 ?쒖쇅
++            .filter(m => m.type !== 'feedback')
+             .map(m => ({
+                 role: m.role,
+                 content: m.content
+@@ -68,10 +126,11 @@ function ChatRoom() {
+         if (!input.trim() || isRequestInFlight.current) return
+         isRequestInFlight.current = true
+ 
+-        // 鍮꾨줈洹몄씤 ?ъ슜??硫붿떆吏 ?쒗븳 泥댄겕
+-        if (!isLoggedIn) {
++        // 鍮꾨줈洹몄씤 ?ъ슜??硫붿떆吏 ?쒗븳 泥댄겕 (泥댄뿕 紐⑤뱶)
++        if (!isDbMode && !isLoggedIn) {
+             if (guestMessageCount >= GUEST_MESSAGE_LIMIT) {
+                 setShowLoginPrompt(true)
++                isRequestInFlight.current = false
+                 return
+             }
+             setGuestMessageCount(prev => prev + 1)
+@@ -90,13 +149,28 @@ function ChatRoom() {
+         setIsTyping(true)
+ 
+         try {
+-            const response = await chatApi.post('/chat', {
+-                message: currentInput,
+-                topicId: topicId,
+-                history: buildHistory()
+-            })
++            let reply, feedback
+ 
+-            const { reply, feedback } = response.data
++            if (isDbMode && conversationId) {
++                // DB 紐⑤뱶: 硫붿떆吏 ???API ?ъ슜
++                const response = await conversationService.sendMessage(
++                    conversationId,
++                    currentInput,
++                    topicId || 6,
++                    buildHistory()
++                )
++                reply = response.reply
++                feedback = response.feedback
++            } else {
++                // 泥댄뿕 紐⑤뱶: 湲곗〈 chat API ?ъ슜 (???????
++                const response = await chatApi.post('/chat', {
++                    message: currentInput,
++                    topicId: topicId,
++                    history: buildHistory()
++                })
++                reply = response.data.reply
++                feedback = response.data.feedback
++            }
+ 
+             // AI ?묐떟 硫붿떆吏
+             const aiMessage = {
+@@ -140,7 +214,8 @@ function ChatRoom() {
+         }
+     }
+ 
+-    const remainingMessages = isLoggedIn ? null : GUEST_MESSAGE_LIMIT - guestMessageCount
++    const remainingMessages = (!isDbMode && !isLoggedIn) ? GUEST_MESSAGE_LIMIT - guestMessageCount : null
++    const isGuestLimitReached = !isDbMode && !isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT
+ 
+     return (
+         <div className="chat-room animate-fade-in">
+@@ -149,11 +224,14 @@ function ChatRoom() {
+                     <div className="chat-avatar">?쨼</div>
+                     <div>
+                         <h2 className="chat-title">AI ?뚰솕 ?뚰듃??/h2>
+-                        <span className="chat-status">??{topicName}</span>
++                        <span className="chat-status">
++                            ??{chatTopicName || '???}
++                            {isDbMode && <span className="save-badge"> ?뮶 ??λ맖</span>}
++                        </span>
+                     </div>
+                 </div>
+                 <div className="chat-actions">
+-                    {!isLoggedIn && remainingMessages !== null && (
++                    {remainingMessages !== null && (
+                         <span className="guest-limit-badge">
+                             泥댄뿕 {remainingMessages}???⑥쓬
+                         </span>
+@@ -162,22 +240,31 @@ function ChatRoom() {
+             </div>
+ 
+             <div className="messages-container">
+-                {messages.map((message) => (
+-                    <div
+-                        key={message.id}
+-                        className={`message ${message.role === 'user' ? 'user' : 'ai'} ${message.type === 'feedback' ? 'feedback' : ''}`}
+-                    >
+-                        {message.role === 'ai' && (
+-                            <div className="message-avatar">
+-                                {message.type === 'feedback' ? '?뱷' : '?쨼'}
+-                            </div>
+-                        )}
+-                        <div className={`message-content ${message.type === 'feedback' ? 'feedback-content' : ''}`}>
+-                            <p className="message-text">{message.content}</p>
+-                            <span className="message-time">{message.timestamp}</span>
++                {loadingMessages ? (
++                    <div className="messages-loading">
++                        <div className="typing-indicator">
++                            <span></span><span></span><span></span>
+                         </div>
++                        <p>?댁쟾 ??붾? 遺덈윭?ㅻ뒗 以?..</p>
+                     </div>
+-                ))}
++                ) : (
++                    messages.map((message) => (
++                        <div
++                            key={message.id}
++                            className={`message ${message.role === 'user' ? 'user' : 'ai'} ${message.type === 'feedback' ? 'feedback' : ''}`}
++                        >
++                            {message.role === 'ai' && (
++                                <div className="message-avatar">
++                                    {message.type === 'feedback' ? '?뱷' : '?쨼'}
++                                </div>
++                            )}
++                            <div className={`message-content ${message.type === 'feedback' ? 'feedback-content' : ''}`}>
++                                <p className="message-text">{message.content}</p>
++                                <span className="message-time">{message.timestamp}</span>
++                            </div>
++                        </div>
++                    ))
++                )}
+ 
+                 {isTyping && (
+                     <div className="message ai">
+@@ -202,17 +289,17 @@ function ChatRoom() {
+                         onChange={(e) => setInput(e.target.value)}
+                         onKeyPress={handleKeyPress}
+                         placeholder={
+-                            !isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT
++                            isGuestLimitReached
+                                 ? "泥댄뿕???앸궗?듬땲?? 濡쒓렇?명븯??怨꾩냽?섏꽭??"
+                                 : "?곸뼱濡?硫붿떆吏瑜??낅젰?섏꽭??.."
+                         }
+                         rows={1}
+                         className="message-input"
+-                        disabled={!isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT}
++                        disabled={isGuestLimitReached}
+                     />
+                     <button
+                         onClick={handleSend}
+-                        disabled={!input.trim() || isTyping || (!isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT)}
++                        disabled={!input.trim() || isTyping || isGuestLimitReached}
+                         className="send-btn"
+                     >
+                         ??diff --git a/frontend/src/pages/ConversationPage.css b/frontend/src/pages/ConversationPage.css
+index 164845e..adc377e 100644
+--- a/frontend/src/pages/ConversationPage.css
++++ b/frontend/src/pages/ConversationPage.css
+@@ -212,4 +212,39 @@
+     display: flex;
+     justify-content: center;
+     gap: 0.75rem;
++}
++
++/* Topic card as div (clickable) */
++.topic-card {
++    cursor: pointer;
++}
++
++/* Delete button */
++.recent-delete-btn {
++    background: none;
++    border: none;
++    font-size: 1rem;
++    cursor: pointer;
++    padding: 0.375rem;
++    border-radius: var(--radius-md);
++    opacity: 0;
++    transition: all var(--transition-fast);
++}
++
++.recent-item:hover .recent-delete-btn {
++    opacity: 0.7;
++}
++
++.recent-delete-btn:hover {
++    opacity: 1 !important;
++    background: rgba(239, 68, 68, 0.1);
++}
++
++/* Loading / Empty states */
++.recent-loading,
++.recent-empty {
++    text-align: center;
++    padding: 2rem 1rem;
++    color: var(--color-text-muted);
++    font-size: 0.875rem;
+ }
+\ No newline at end of file
+diff --git a/frontend/src/pages/ConversationPage.jsx b/frontend/src/pages/ConversationPage.jsx
+index 3f6a6cb..0be492b 100644
+--- a/frontend/src/pages/ConversationPage.jsx
++++ b/frontend/src/pages/ConversationPage.jsx
+@@ -1,5 +1,7 @@
+-import { Link } from 'react-router-dom'
++import { useState, useEffect } from 'react'
++import { Link, useNavigate } from 'react-router-dom'
+ import { useAuth } from '../components/AuthContext'
++import conversationService from '../services/conversationService'
+ import './ConversationPage.css'
+ 
+ const topics = [
+@@ -11,14 +13,75 @@ const topics = [
+     { id: 6, title: '?먯쑀 二쇱젣', description: '?먰븯??二쇱젣濡???뷀븯湲?, icon: '?렓', color: '#ec4899' },
+ ]
+ 
+-const recentChats = [
+-    { id: 'r1', title: '?ы뻾 怨꾪쉷 ?댁빞湲?, lastMessage: 'That sounds like a great trip!', time: '2?쒓컙 ?? },
+-    { id: 'r2', title: '?쇱긽 ????곗뒿', lastMessage: 'How was your weekend?', time: '?댁젣' },
+-    { id: 'r3', title: '硫댁젒 ?곗뒿', lastMessage: 'Tell me about yourself.', time: '3???? },
+-]
++const topicIcons = { 1: '??, 2: '?덌툘', 3: '?뮳', 4: '?렞', 5: '?뮲', 6: '?렓' }
+ 
+ function ConversationPage() {
+     const { isLoggedIn } = useAuth()
++    const navigate = useNavigate()
++    const [recentChats, setRecentChats] = useState([])
++    const [loadingChats, setLoadingChats] = useState(false)
++
++    useEffect(() => {
++        if (isLoggedIn) {
++            fetchConversations()
++        }
++    }, [isLoggedIn])
++
++    const fetchConversations = async () => {
++        setLoadingChats(true)
++        try {
++            const data = await conversationService.getConversations()
++            setRecentChats(data)
++        } catch (err) {
++            console.error('???紐⑸줉 議고쉶 ?ㅽ뙣:', err)
++        } finally {
++            setLoadingChats(false)
++        }
++    }
++
++    // 濡쒓렇???ъ슜?? ??????앹꽦 ??梨꾪똿諛??대룞
++    const handleTopicClick = async (topicId) => {
++        if (!isLoggedIn) {
++            // 鍮꾨줈洹몄씤: 湲곗〈 泥댄뿕 紐⑤뱶 (topicId濡??대룞)
++            navigate(`/conversation/${topicId}`)
++            return
++        }
++
++        try {
++            const result = await conversationService.createConversation(topicId)
++            navigate(`/conversation/c-${result.id}`)
++        } catch (err) {
++            console.error('????앹꽦 ?ㅽ뙣:', err)
++            // ?ㅽ뙣 ??湲곗〈 諛⑹떇?쇰줈 ?대룞
++            navigate(`/conversation/${topicId}`)
++        }
++    }
++
++    const handleDeleteChat = async (e, chatId) => {
++        e.preventDefault()
++        e.stopPropagation()
++        if (!window.confirm('????붾? ??젣?섏떆寃좎뒿?덇퉴?')) return
++
++        try {
++            await conversationService.deleteConversation(chatId)
++            setRecentChats(prev => prev.filter(c => c.id !== chatId))
++        } catch (err) {
++            console.error('?????젣 ?ㅽ뙣:', err)
++        }
++    }
++
++    const formatTime = (dateStr) => {
++        const date = new Date(dateStr)
++        const now = new Date()
++        const diffMs = now - date
++        const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
++        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
++
++        if (diffHours < 1) return '諛⑷툑 ??
++        if (diffHours < 24) return `${diffHours}?쒓컙 ??
++        if (diffDays < 7) return `${diffDays}????
++        return date.toLocaleDateString('ko-KR')
++    }
+ 
+     return (
+         <div className="conversation-page animate-fade-in">
+@@ -37,16 +100,16 @@ function ConversationPage() {
+                 <h2 className="section-title">二쇱젣 ?좏깮</h2>
+                 <div className="topics-grid">
+                     {topics.map((topic) => (
+-                        <Link
++                        <div
+                             key={topic.id}
+-                            to={`/conversation/${topic.id}`}
+                             className="topic-card"
+                             style={{ '--accent-color': topic.color }}
++                            onClick={() => handleTopicClick(topic.id)}
+                         >
+                             <span className="topic-icon">{topic.icon}</span>
+                             <h3 className="topic-title">{topic.title}</h3>
+                             <p className="topic-description">{topic.description}</p>
+-                        </Link>
++                        </div>
+                     ))}
+                 </div>
+             </section>
+@@ -55,18 +118,34 @@ function ConversationPage() {
+             {isLoggedIn && (
+                 <section className="recent-section">
+                     <h2 className="section-title">理쒓렐 ???/h2>
+-                    <div className="recent-list">
+-                        {recentChats.map((chat) => (
+-                            <Link key={chat.id} to={`/conversation/${chat.id}`} className="recent-item">
+-                                <div className="recent-avatar">?뮠</div>
+-                                <div className="recent-content">
+-                                    <h4 className="recent-title">{chat.title}</h4>
+-                                    <p className="recent-message">{chat.lastMessage}</p>
+-                                </div>
+-                                <span className="recent-time">{chat.time}</span>
+-                            </Link>
+-                        ))}
+-                    </div>
++                    {loadingChats ? (
++                        <div className="recent-loading">???紐⑸줉??遺덈윭?ㅻ뒗 以?..</div>
++                    ) : recentChats.length > 0 ? (
++                        <div className="recent-list">
++                            {recentChats.map((chat) => (
++                                <Link key={chat.id} to={`/conversation/c-${chat.id}`} className="recent-item">
++                                    <div className="recent-avatar">
++                                        {topicIcons[chat.topicId] || '?뮠'}
++                                    </div>
++                                    <div className="recent-content">
++                                        <h4 className="recent-title">{chat.title}</h4>
++                                        <p className="recent-message">{formatTime(chat.updatedAt)}</p>
++                                    </div>
++                                    <button
++                                        className="recent-delete-btn"
++                                        onClick={(e) => handleDeleteChat(e, chat.id)}
++                                        title="?????젣"
++                                    >
++                                        ?뿊截?+                                    </button>
++                                </Link>
++                            ))}
++                        </div>
++                    ) : (
++                        <div className="recent-empty">
++                            <p>?꾩쭅 ??λ맂 ??붽? ?놁뒿?덈떎. ?좏뵿???좏깮?섏뿬 ??붾? ?쒖옉?대낫?몄슂!</p>
++                        </div>
++                    )}
+                 </section>
+             )}
+ 
+diff --git a/frontend/src/pages/LoginPage.jsx b/frontend/src/pages/LoginPage.jsx
+index 5a0c997..fef53f2 100644
+--- a/frontend/src/pages/LoginPage.jsx
++++ b/frontend/src/pages/LoginPage.jsx
+@@ -1,10 +1,12 @@
+ import { useState } from 'react'
+ import { Link, useNavigate } from 'react-router-dom'
+ import authService from '../services/authService'
++import { useAuth } from '../components/AuthContext'
+ import './LoginPage.css'
+ 
+ function LoginPage() {
+     const navigate = useNavigate()
++    const { login } = useAuth()
+     const [formData, setFormData] = useState({
+         email: '',
+         password: ''
+@@ -26,6 +28,8 @@ function LoginPage() {
+         try {
+             const response = await authService.login(formData.email, formData.password)
+             if (response.success) {
++                // AuthContext ?곹깭 ?낅뜲?댄듃
++                login(response.user, response.accessToken, response.refreshToken)
+                 navigate('/')
+             }
+         } catch (err) {
+@@ -88,7 +92,6 @@ function LoginPage() {
+                                 <input type="checkbox" className="checkbox" />
+                                 <span>濡쒓렇???곹깭 ?좎?</span>
+                             </label>
+-                            <a href="#" className="forgot-link">鍮꾨?踰덊샇 李얘린</a>
+                         </div>
+ 
+                         <button
+diff --git a/frontend/src/pages/MyPage.jsx b/frontend/src/pages/MyPage.jsx
+index 5cba44f..bed98fa 100644
+--- a/frontend/src/pages/MyPage.jsx
++++ b/frontend/src/pages/MyPage.jsx
+@@ -5,24 +5,25 @@ import userService from '../services/userService'
+ import solvedacService from '../services/solvedacService'
+ import './MyPage.css'
+ 
+-const weeklyData = [
+-    { day: '??, hours: 2.5 },
+-    { day: '??, hours: 1.8 },
+-    { day: '??, hours: 3.2 },
+-    { day: '紐?, hours: 2.0 },
+-    { day: '湲?, hours: 4.1 },
+-    { day: '??, hours: 1.5 },
+-    { day: '??, hours: 2.8 }
+-]
+ 
+-const recentActivity = [
+-    { id: 1, type: 'coding', title: '???섏쓽 ??, result: '?듦낵', time: '2?쒓컙 ?? },
+-    { id: 2, type: 'conversation', title: '?쇱긽 ????곗뒿', duration: '15遺?, time: '?댁젣' },
+-    { id: 3, type: 'coding', title: '臾몄옄???ㅼ쭛湲?, result: '?듦낵', time: '2???? },
+-    { id: 4, type: 'word', title: '?⑥뼱 ?숈뒿', count: '10媛?, time: '3???? },
+-]
++const formatTimeAgo = (dateString) => {
++    if (!dateString) return '';
++    const date = new Date(dateString);
++    const now = new Date();
++    const diffInSeconds = Math.floor((now - date) / 1000);
+ 
+-const maxHours = Math.max(...weeklyData.map(d => d.hours))
++    if (diffInSeconds < 60) return '諛⑷툑 ??;
++    const diffInMinutes = Math.floor(diffInSeconds / 60);
++    if (diffInMinutes < 60) return `${diffInMinutes}遺???;
++    const diffInHours = Math.floor(diffInMinutes / 60);
++    if (diffInHours < 24) return `${diffInHours}?쒓컙 ??;
++    const diffInDays = Math.floor(diffInHours / 24);
++    if (diffInDays === 1) return '?댁젣';
++    if (diffInDays < 30) return `${diffInDays}????;
++    const diffInMonths = Math.floor(diffInDays / 30);
++    if (diffInMonths < 12) return `${diffInMonths}媛쒖썡 ??;
++    return `${Math.floor(diffInMonths / 12)}????;
++}
+ 
+ function MyPage() {
+     const navigate = useNavigate()
+@@ -45,15 +46,27 @@ function MyPage() {
+     })
+     const [bojInfo, setBojInfo] = useState(null)
+     const [loadingBoj, setLoadingBoj] = useState(false)
++    const [recentActivity, setRecentActivity] = useState([])
++    const [stats, setStats] = useState({
++        totalStudyTime: '0?쒓컙',
++        streak: 0,
++        conversationCount: 0,
++        codingCount: 0,
++        codingPassedCount: 0,
++        accuracy: '0%',
++        wordsLearned: 0
++    })
++    const [weeklyData, setWeeklyData] = useState([
++        { day: '??, hours: 0 },
++        { day: '??, hours: 0 },
++        { day: '??, hours: 0 },
++        { day: '紐?, hours: 0 },
++        { day: '湲?, hours: 0 },
++        { day: '??, hours: 0 },
++        { day: '??, hours: 0 }
++    ])
+ 
+-    const stats = {
+-        totalStudyTime: '156?쒓컙',
+-        streak: 12,
+-        conversationCount: 45,
+-        codingCount: 78,
+-        accuracy: '89%',
+-        wordsLearned: 234
+-    }
++    const maxHours = Math.max(...weeklyData.map(d => d.hours), 1)
+ 
+     const getRank = (streakDays) => {
+         if (streakDays >= 100) return { emoji: '?몣', name: '?덉쟾??(Legend)', badge: 'badge-error' }
+@@ -82,18 +95,71 @@ function MyPage() {
+                 if (u.bojHandle) {
+                     fetchBojInfo(u.bojHandle)
+                 }
++                if (u.id) {
++                    fetchActivityHistory()
++                    fetchUserStats()
++                }
+             } catch (e) {
+                 console.error('Failed to parse user data:', e)
+             }
+         }
+     }, [])
+ 
++    const fetchActivityHistory = async () => {
++        try {
++            const data = await userService.getActivityHistory()
++            if (data && data.recentActivity) {
++                setRecentActivity(data.recentActivity)
++            }
++        } catch (err) {
++            console.error('?쒕룞 ?댁뿭 議고쉶 ?ㅽ뙣:', err)
++        }
++    }
++
++    const fetchUserStats = async () => {
++        try {
++            const data = await userService.getUserStats()
++            if (data) {
++                if (data.stats) {
++                    setStats(prev => ({
++                        ...data.stats,
++                        // 諛깆? ?뺣낫媛 ?대? 濡쒕뱶?섏뿀?ㅻ㈃ 洹??섎룄 ?ㅼ떆 ?⑹궛
++                        codingCount: data.stats.codingCount + (bojInfo?.solvedCount || 0),
++                        codingPassedCount: data.stats.codingPassedCount || 0,
++                    }))
++                }
++                if (data.weeklyData) setWeeklyData(data.weeklyData)
++            }
++        } catch (err) {
++            console.error('?듦퀎 議고쉶 ?ㅽ뙣:', err)
++        }
++    }
++
+     const fetchBojInfo = async (handle) => {
+         if (!handle) return
+         setLoadingBoj(true)
+         try {
+             const info = await solvedacService.getUserInfo(handle)
+             setBojInfo(info)
++
++            // 湲곗〈 stats??諛깆? ????섎? ?⑹궛?섏뿬 ?뺣떟瑜??ш퀎??+            setStats(prev => {
++                const newCodingCount = prev.codingCount + (info.solvedCount || 0)
++                // 諛깆??먯꽌????臾몄젣(solvedCount)瑜?紐⑤몢 ?⑥뒪??寃껋쑝濡?媛??(?쒖텧 ?잛닔瑜??뚭린 ?대젮?)
++                const newCodingPassedCount = (prev.codingPassedCount || 0) + (info.solvedCount || 0)
++
++                let newAccuracy = prev.accuracy
++                if (newCodingCount > 0) {
++                    newAccuracy = Math.round((newCodingPassedCount / newCodingCount) * 100) + '%'
++                }
++
++                return {
++                    ...prev,
++                    codingCount: newCodingCount,
++                    codingPassedCount: newCodingPassedCount,
++                    accuracy: newAccuracy
++                }
++            })
+         } catch (err) {
+             console.error('BOJ ?뺣낫 議고쉶 ?ㅽ뙣:', err)
+             setBojInfo(null)
+@@ -296,13 +362,7 @@ function MyPage() {
+                         <span className="stat-label">肄붾뵫 臾몄젣</span>
+                     </div>
+                 </div>
+-                <div className="stat-card">
+-                    <span className="stat-icon">?렞</span>
+-                    <div className="stat-info">
+-                        <span className="stat-value">{stats.accuracy}</span>
+-                        <span className="stat-label">?뺣떟瑜?/span>
+-                    </div>
+-                </div>
++                {newFunction()}
+                 <div className="stat-card">
+                     <span className="stat-icon">?뱴</span>
+                     <div className="stat-info">
+@@ -404,12 +464,17 @@ function MyPage() {
+                                 <div className="activity-info">
+                                     <span className="activity-title">{activity.title}</span>
+                                     <span className="activity-detail">
+-                                        {activity.result || activity.duration || activity.count}
++                                        {activity.result || activity.duration || activity.count || activity.detail}
+                                     </span>
+                                 </div>
+-                                <span className="activity-time">{activity.time}</span>
++                                <span className="activity-time">{formatTimeAgo(activity.time)}</span>
+                             </div>
+                         ))}
++                        {recentActivity.length === 0 && (
++                            <p className="no-activity" style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
++                                理쒓렐 ?쒕룞 ?댁뿭???놁뒿?덈떎.
++                            </p>
++                        )}
+                     </div>
+                 </section>
+             </div>
+@@ -459,6 +524,16 @@ function MyPage() {
+             )}
+         </div>
+     )
++
++    function newFunction() {
++        return <div className="stat-card">
++            <span className="stat-icon">?렞</span>
++            <div className="stat-info">
++                <span className="stat-value">{stats.accuracy}</span>
++                <span className="stat-label">?뺣떟瑜?/span>
++            </div>
++        </div>
++    }
+ }
+ 
+ export default MyPage
+diff --git a/frontend/src/services/userService.js b/frontend/src/services/userService.js
+index d790924..34148cb 100644
+--- a/frontend/src/services/userService.js
++++ b/frontend/src/services/userService.js
+@@ -18,6 +18,24 @@ const userService = {
+         return response.data;
+     },
+ 
++    /**
++     * ?쒕룞 ?댁뿭 議고쉶
++     * @returns {Promise} ?쒕룞 ?댁뿭 ?곗씠??+     */
++    async getActivityHistory() {
++        const response = await api.get('/users/activity');
++        return response.data;
++    },
++
++    /**
++     * ?듦퀎 議고쉶
++     * @returns {Promise} ?듦퀎 ?곗씠??+     */
++    async getUserStats() {
++        const response = await api.get('/users/stats');
++        return response.data;
++    },
++
+     /**
+      * 怨꾩젙 ??젣
+      * @returns {Promise} ??젣 寃곌낵

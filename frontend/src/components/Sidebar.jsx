@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import authService from '../services/authService'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from './AuthContext'
 import './Sidebar.css'
 
 const menuItems = [
@@ -38,30 +37,16 @@ const menuItems = [
 ]
 
 function Sidebar() {
-    const location = useLocation()
     const navigate = useNavigate()
-    const [user, setUser] = useState(null)
-
-    useEffect(() => {
-        // localStorage에서 사용자 정보 확인
-        const storedUser = localStorage.getItem('user')
-        if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser))
-            } catch (e) {
-                setUser(null)
-            }
-        }
-    }, [location]) // location이 바뀔 때마다 체크 (로그인 후 리다이렉트 시)
+    const { isLoggedIn, user, logout } = useAuth()
 
     const handleLogout = async () => {
-        await authService.logout()
-        setUser(null)
+        logout()
         navigate('/login')
     }
 
     const handleNavClick = (e, item) => {
-        if (item.requiresAuth && !user) {
+        if (item.requiresAuth && !isLoggedIn) {
             e.preventDefault()
             navigate('/login')
         }
@@ -96,7 +81,7 @@ function Sidebar() {
             </nav>
 
             <div className="sidebar-footer">
-                {user ? (
+                {isLoggedIn && user ? (
                     <div className="user-card">
                         <div className="user-avatar">{user.name?.charAt(0) || 'U'}</div>
                         <div className="user-info">
@@ -121,4 +106,3 @@ function Sidebar() {
 }
 
 export default Sidebar
-

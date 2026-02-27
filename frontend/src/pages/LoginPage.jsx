@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import authService from '../services/authService'
+import { useAuth } from '../components/AuthContext'
 import './LoginPage.css'
 
 function LoginPage() {
     const navigate = useNavigate()
+    const { login } = useAuth()
     const [formData, setFormData] = useState({
         email: '',
         password: ''
@@ -26,6 +28,8 @@ function LoginPage() {
         try {
             const response = await authService.login(formData.email, formData.password)
             if (response.success) {
+                // AuthContext 상태 업데이트
+                login(response.user, response.accessToken, response.refreshToken)
                 navigate('/')
             }
         } catch (err) {
@@ -88,7 +92,6 @@ function LoginPage() {
                                 <input type="checkbox" className="checkbox" />
                                 <span>로그인 상태 유지</span>
                             </label>
-                            <a href="#" className="forgot-link">비밀번호 찾기</a>
                         </div>
 
                         <button

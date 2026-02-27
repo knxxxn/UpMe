@@ -2,6 +2,9 @@ package com.upme.controller;
 
 import com.upme.model.User;
 import com.upme.repository.UserRepository;
+import com.upme.repository.UserActivityRepository;
+import com.upme.repository.SavedWordRepository;
+import com.upme.repository.ConversationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -19,6 +23,9 @@ public class UserController {
 
         private final UserRepository userRepository;
         private final PasswordEncoder passwordEncoder;
+        private final UserActivityRepository userActivityRepository;
+        private final SavedWordRepository savedWordRepository;
+        private final ConversationRepository conversationRepository;
 
         /**
          * 프로필 조회
@@ -162,9 +169,134 @@ public class UserController {
                 Long userId = (Long) authentication.getPrincipal();
                 log.info("활동 내역 조회: userId={}", userId);
 
-                // TODO: 활동 내역 테이블 생성 후 실제 조회 구현
+                List<com.upme.model.UserActivity> activities = userActivityRepository
+                                .findByUserIdOrderByCreatedAtDesc(userId);
+
+                // 최근 10개로 제한
+                if (activities.size() > 10) {
+                        activities = activities.subList(0, 10);
+                }
+
+                List<Map<String, Object>> activityList = activities.stream().map(a -> {
+                        Map<String, Object> map = new java.util.HashMap<>();
+                        map.put("id", a.getId());
+                        map.put("type", a.getActivityType());
+                        map.put("title", a.getTitle());
+
+                        if ("coding".equals(a.getActivityType())) {
+                                map.put("result", a.getDetail());
+                        } else if ("conversation".equals(a.getActivityType())) {
+                                map.put("duration", a.getDetail());
+                        } else if ("word".equals(a.getActivityType())) {
+                                map.put("count", a.getDetail());
+                        } else {
+                                map.put("detail", a.getDetail());
+                        }
+
+                        map.put("time", a.getCreatedAt() != null ? a.getCreatedAt().toString() : "");
+                        return map;
+                }).toList();
+
+                return ResponseEntity.ok(Map.of("recentActivity", activityList));
+        }
+
+        /**
+         * 통계 조회
+         * GET /api/users/stats
+         */
+        @GetMapping("/stats")
+        public ResponseEntity<Map<String, Object>> getUserStats(Authentication authentication) {
+                Long userId = (Long) authentication.getPrincipal();
+                log.info("통계 조회: userId={}", userId);
+
+                List<com.upme.model.UserActivity> activities = userActivityRepository
+                                .findByUserIdOrderByCreatedAtDesc(userId);
+                int savedWordsCount = savedWordRepository.countByUserId(userId);
+                int conversationCount = conversationRepository.countByUserId(userId);
+
+                int codingCount = 0;
+                int codingPassedCount = 0;
+                int totalStudyTimeMinutes = 0;
+
+                java.util.Set<java.time.LocalDate> activityDates = new java.util.HashSet<>();
+
+                java.time.LocalDate today = java.time.LocalDate.now();
+                java.time.LocalDate oneWeekAgo = today.minusDays(6);
+
+                Map<java.time.DayOfWeek, Double> weeklyHoursMap = new java.util.EnumMap<>(java.time.DayOfWeek.class);
+                for (java.time.DayOfWeek day : java.time.DayOfWeek.values()) {
+                        weeklyHoursMap.put(day, 0.0);
+                }
+
+                for (com.upme.model.UserActivity activity : activities) {
+                        if (activity.getStudyTimeMinutes() != null) {
+                                totalStudyTimeMinutes += activity.getStudyTimeMinutes();
+                        }
+
+                        if ("coding".equals(activity.getActivityType())) {
+                                codingCount++;
+                                if ("통과".equals(activity.getDetail())) {
+                                        codingPassedCount++;
+                                }
+                        }
+
+                        if (activity.getCreatedAt() != null) {
+                                java.time.LocalDate date = activity.getCreatedAt().toLocalDate();
+                                activityDates.add(date);
+
+                                if (!date.isBefore(oneWeekAgo) && !date.isAfter(today)) {
+                                        double hours = weeklyHoursMap.get(date.getDayOfWeek());
+                                        int mins = activity.getStudyTimeMinutes() != null
+                                                        ? activity.getStudyTimeMinutes()
+                                                        : 0;
+                                        weeklyHoursMap.put(date.getDayOfWeek(), hours + (mins / 60.0));
+                                }
+                        }
+                }
+
+                String accuracy = "0%";
+                if (codingCount > 0) {
+                        int acc = (int) Math.round(((double) codingPassedCount / codingCount) * 100);
+                        accuracy = acc + "%";
+                }
+
+                int streak = 0;
+                java.time.LocalDate checkDate = today;
+                while (activityDates.contains(checkDate)) {
+                        streak++;
+                        checkDate = checkDate.minusDays(1);
+                }
+
+                if (streak == 0 && activityDates.contains(today.minusDays(1))) {
+                        streak = 1;
+                        checkDate = today.minusDays(2);
+                        while (activityDates.contains(checkDate)) {
+                                streak++;
+                                checkDate = checkDate.minusDays(1);
+                        }
+                }
+
+                String totalStudyTime = (totalStudyTimeMinutes / 60) + "시간";
+
+                List<Map<String, Object>> weeklyData = new java.util.ArrayList<>();
+                String[] dayNames = { "", "월", "화", "수", "목", "금", "토", "일" };
+                for (int i = 1; i <= 7; i++) {
+                        java.time.DayOfWeek dow = java.time.DayOfWeek.of(i);
+                        double hours = Math.round(weeklyHoursMap.get(dow) * 10.0) / 10.0;
+                        weeklyData.add(Map.of("day", dayNames[i], "hours", hours));
+                }
+
+                Map<String, Object> stats = new java.util.HashMap<>();
+                stats.put("totalStudyTime", totalStudyTime);
+                stats.put("streak", streak);
+                stats.put("conversationCount", conversationCount);
+                stats.put("codingCount", codingCount);
+                stats.put("codingPassedCount", codingPassedCount);
+                stats.put("accuracy", accuracy);
+                stats.put("wordsLearned", savedWordsCount);
+
                 return ResponseEntity.ok(Map.of(
-                                "recentSubmissions", java.util.List.of(),
-                                "recentConversations", java.util.List.of()));
+                                "stats", stats,
+                                "weeklyData", weeklyData));
         }
 }

@@ -19,6 +19,24 @@ const userService = {
     },
 
     /**
+     * 활동 내역 조회
+     * @returns {Promise} 활동 내역 데이터
+     */
+    async getActivityHistory() {
+        const response = await api.get('/users/activity');
+        return response.data;
+    },
+
+    /**
+     * 통계 조회
+     * @returns {Promise} 통계 데이터
+     */
+    async getUserStats() {
+        const response = await api.get('/users/stats');
+        return response.data;
+    },
+
+    /**
      * 계정 삭제
      * @returns {Promise} 삭제 결과
      */

@@ -213,3 +213,38 @@
     justify-content: center;
     gap: 0.75rem;
 }
+
+/* Topic card as div (clickable) */
+.topic-card {
+    cursor: pointer;
+}
+
+/* Delete button */
+.recent-delete-btn {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.375rem;
+    border-radius: var(--radius-md);
+    opacity: 0;
+    transition: all var(--transition-fast);
+}
+
+.recent-item:hover .recent-delete-btn {
+    opacity: 0.7;
+}
+
+.recent-delete-btn:hover {
+    opacity: 1 !important;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* Loading / Empty states */
+.recent-loading,
+.recent-empty {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+}

@@ -13,5 +13,7 @@ public interface SavedWordRepository extends JpaRepository<SavedWord, Long> {
 
     boolean existsByUserIdAndWordId(Long userId, Long wordId);
 
+    int countByUserId(Long userId);
+
     void deleteByUserIdAndWordId(Long userId, Long wordId);
 }

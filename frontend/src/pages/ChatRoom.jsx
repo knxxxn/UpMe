@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom'
 import LoginPromptModal from '../components/LoginPromptModal'
 import { useAuth } from '../components/AuthContext'
 import axios from 'axios'
+import conversationService from '../services/conversationService'
 import './ChatRoom.css'
 
-// Gemini API용 별도 axios 인스턴스 (타임아웃 30초)
+// Gemini API용 별도 axios 인스턴스 (타임아웃 30초) - 비로그인 체험용
 const chatApi = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
     timeout: 30000,
@@ -26,23 +27,22 @@ const topics = {
 function ChatRoom() {
     const { roomId } = useParams()
     const { isLoggedIn } = useAuth()
-    const topicId = parseInt(roomId) || 6
-    const topicName = topics[topicId] || '자유 주제'
 
-    const [messages, setMessages] = useState([
-        {
-            id: 1,
-            role: 'ai',
-            content: `Hello! I'm your AI conversation partner. Let's practice English together! Today's topic is "${topicName}". What would you like to talk about?`,
-            timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-        }
-    ])
+    // DB 기반 대화인지 체험 모드인지 구분
+    const isDbMode = roomId?.startsWith('c-')
+    const conversationId = isDbMode ? parseInt(roomId.replace('c-', '')) : null
+    const topicId = isDbMode ? null : (parseInt(roomId) || 6)
+    const topicName = isDbMode ? '' : (topics[topicId] || '자유 주제')
+
+    const [messages, setMessages] = useState([])
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
     const [guestMessageCount, setGuestMessageCount] = useState(0)
     const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+    const [chatTopicName, setChatTopicName] = useState(topicName)
+    const [loadingMessages, setLoadingMessages] = useState(false)
     const messagesEndRef = useRef(null)
-    const isRequestInFlight = useRef(false) // 중복 요청 방지
+    const isRequestInFlight = useRef(false)
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -52,12 +52,70 @@ function ChatRoom() {
         scrollToBottom()
     }, [messages])
 
+    // DB 모드: 이전 메시지 로드
+    useEffect(() => {
+        if (isDbMode && conversationId) {
+            loadMessages()
+        } else {
+            // 체험 모드: 초기 인사 메시지
+            setMessages([{
+                id: 1,
+                role: 'ai',
+                content: `Hello! I'm your AI conversation partner. Let's practice English together! Today's topic is "${topicName}". What would you like to talk about?`,
+                timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+            }])
+        }
+    }, [roomId])
+
+    const loadMessages = async () => {
+        setLoadingMessages(true)
+        try {
+            const data = await conversationService.getMessages(conversationId)
+            const loadedMessages = data.map(m => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                type: m.feedback ? undefined : undefined,
+                timestamp: new Date(m.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+                feedback: m.feedback,
+            }))
+
+            // 피드백이 있는 AI 메시지는 별도 피드백 메시지로 분리
+            const expandedMessages = []
+            loadedMessages.forEach(m => {
+                expandedMessages.push(m)
+                if (m.role === 'ai' && m.feedback && m.feedback.trim()) {
+                    expandedMessages.push({
+                        id: m.id + 0.5,
+                        role: 'ai',
+                        type: 'feedback',
+                        content: m.feedback,
+                        timestamp: m.timestamp,
+                    })
+                }
+            })
+
+            setMessages(expandedMessages)
+
+            // 첫 메시지에서 토픽 이름 추출
+            if (data.length > 0) {
+                const firstMsg = data[0].content
+                const topicMatch = firstMsg.match(/topic is "([^"]+)"/)
+                if (topicMatch) setChatTopicName(topicMatch[1])
+            }
+        } catch (err) {
+            console.error('메시지 로드 실패:', err)
+        } finally {
+            setLoadingMessages(false)
+        }
+    }
+
     /**
      * 대화 히스토리를 백엔드 API 형식으로 변환
      */
     const buildHistory = () => {
         return messages
-            .filter(m => m.type !== 'feedback') // 피드백 메시지는 히스토리에서 제외
+            .filter(m => m.type !== 'feedback')
             .map(m => ({
                 role: m.role,
                 content: m.content
@@ -68,10 +126,11 @@ function ChatRoom() {
         if (!input.trim() || isRequestInFlight.current) return
         isRequestInFlight.current = true
 
-        // 비로그인 사용자 메시지 제한 체크
-        if (!isLoggedIn) {
+        // 비로그인 사용자 메시지 제한 체크 (체험 모드)
+        if (!isDbMode && !isLoggedIn) {
             if (guestMessageCount >= GUEST_MESSAGE_LIMIT) {
                 setShowLoginPrompt(true)
+                isRequestInFlight.current = false
                 return
             }
             setGuestMessageCount(prev => prev + 1)
@@ -90,13 +149,28 @@ function ChatRoom() {
         setIsTyping(true)
 
         try {
-            const response = await chatApi.post('/chat', {
-                message: currentInput,
-                topicId: topicId,
-                history: buildHistory()
-            })
+            let reply, feedback
 
-            const { reply, feedback } = response.data
+            if (isDbMode && conversationId) {
+                // DB 모드: 메시지 저장 API 사용
+                const response = await conversationService.sendMessage(
+                    conversationId,
+                    currentInput,
+                    topicId || 6,
+                    buildHistory()
+                )
+                reply = response.reply
+                feedback = response.feedback
+            } else {
+                // 체험 모드: 기존 chat API 사용 (저장 안 됨)
+                const response = await chatApi.post('/chat', {
+                    message: currentInput,
+                    topicId: topicId,
+                    history: buildHistory()
+                })
+                reply = response.data.reply
+                feedback = response.data.feedback
+            }
 
             // AI 응답 메시지
             const aiMessage = {
@@ -140,7 +214,8 @@ function ChatRoom() {
         }
     }
 
-    const remainingMessages = isLoggedIn ? null : GUEST_MESSAGE_LIMIT - guestMessageCount
+    const remainingMessages = (!isDbMode && !isLoggedIn) ? GUEST_MESSAGE_LIMIT - guestMessageCount : null
+    const isGuestLimitReached = !isDbMode && !isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT
 
     return (
         <div className="chat-room animate-fade-in">
@@ -149,11 +224,14 @@ function ChatRoom() {
                     <div className="chat-avatar">🤖</div>
                     <div>
                         <h2 className="chat-title">AI 회화 파트너</h2>
-                        <span className="chat-status">● {topicName}</span>
+                        <span className="chat-status">
+                            ● {chatTopicName || '대화'}
+                            {isDbMode && <span className="save-badge"> 💾 저장됨</span>}
+                        </span>
                     </div>
                 </div>
                 <div className="chat-actions">
-                    {!isLoggedIn && remainingMessages !== null && (
+                    {remainingMessages !== null && (
                         <span className="guest-limit-badge">
                             체험 {remainingMessages}회 남음
                         </span>
@@ -162,22 +240,31 @@ function ChatRoom() {
             </div>
 
             <div className="messages-container">
-                {messages.map((message) => (
-                    <div
-                        key={message.id}
-                        className={`message ${message.role === 'user' ? 'user' : 'ai'} ${message.type === 'feedback' ? 'feedback' : ''}`}
-                    >
-                        {message.role === 'ai' && (
-                            <div className="message-avatar">
-                                {message.type === 'feedback' ? '📝' : '🤖'}
-                            </div>
-                        )}
-                        <div className={`message-content ${message.type === 'feedback' ? 'feedback-content' : ''}`}>
-                            <p className="message-text">{message.content}</p>
-                            <span className="message-time">{message.timestamp}</span>
+                {loadingMessages ? (
+                    <div className="messages-loading">
+                        <div className="typing-indicator">
+                            <span></span><span></span><span></span>
                         </div>
+                        <p>이전 대화를 불러오는 중...</p>
                     </div>
-                ))}
+                ) : (
+                    messages.map((message) => (
+                        <div
+                            key={message.id}
+                            className={`message ${message.role === 'user' ? 'user' : 'ai'} ${message.type === 'feedback' ? 'feedback' : ''}`}
+                        >
+                            {message.role === 'ai' && (
+                                <div className="message-avatar">
+                                    {message.type === 'feedback' ? '📝' : '🤖'}
+                                </div>
+                            )}
+                            <div className={`message-content ${message.type === 'feedback' ? 'feedback-content' : ''}`}>
+                                <p className="message-text">{message.content}</p>
+                                <span className="message-time">{message.timestamp}</span>
+                            </div>
+                        </div>
+                    ))
+                )}
 
                 {isTyping && (
                     <div className="message ai">
@@ -202,17 +289,17 @@ function ChatRoom() {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={handleKeyPress}
                         placeholder={
-                            !isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT
+                            isGuestLimitReached
                                 ? "체험이 끝났습니다. 로그인하여 계속하세요!"
                                 : "영어로 메시지를 입력하세요..."
                         }
                         rows={1}
                         className="message-input"
-                        disabled={!isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT}
+                        disabled={isGuestLimitReached}
                     />
                     <button
                         onClick={handleSend}
-                        disabled={!input.trim() || isTyping || (!isLoggedIn && guestMessageCount >= GUEST_MESSAGE_LIMIT)}
+                        disabled={!input.trim() || isTyping || isGuestLimitReached}
                         className="send-btn"
                     >
                         ➤

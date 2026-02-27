@@ -111,7 +111,7 @@ public class WordController {
         List<Map<String, Object>> result = savedWords.stream()
                 .map(sw -> {
                     Map<String, Object> map = wordToMap(sw.getWord());
-                    map.put("savedAt", sw.getSavedAt().toString());
+                    map.put("savedAt", sw.getSavedAt() != null ? sw.getSavedAt().toString() : "");
                     return map;
                 })
                 .collect(Collectors.toList());

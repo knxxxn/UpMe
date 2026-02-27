@@ -5,24 +5,25 @@ import userService from '../services/userService'
 import solvedacService from '../services/solvedacService'
 import './MyPage.css'
 
-const weeklyData = [
-    { day: '월', hours: 2.5 },
-    { day: '화', hours: 1.8 },
-    { day: '수', hours: 3.2 },
-    { day: '목', hours: 2.0 },
-    { day: '금', hours: 4.1 },
-    { day: '토', hours: 1.5 },
-    { day: '일', hours: 2.8 }
-]
 
-const recentActivity = [
-    { id: 1, type: 'coding', title: '두 수의 합', result: '통과', time: '2시간 전' },
-    { id: 2, type: 'conversation', title: '일상 대화 연습', duration: '15분', time: '어제' },
-    { id: 3, type: 'coding', title: '문자열 뒤집기', result: '통과', time: '2일 전' },
-    { id: 4, type: 'word', title: '단어 학습', count: '10개', time: '3일 전' },
-]
+const formatTimeAgo = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
 
-const maxHours = Math.max(...weeklyData.map(d => d.hours))
+    if (diffInSeconds < 60) return '방금 전';
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes}분 전`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}시간 전`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays === 1) return '어제';
+    if (diffInDays < 30) return `${diffInDays}일 전`;
+    const diffInMonths = Math.floor(diffInDays / 30);
+    if (diffInMonths < 12) return `${diffInMonths}개월 전`;
+    return `${Math.floor(diffInMonths / 12)}년 전`;
+}
 
 function MyPage() {
     const navigate = useNavigate()
@@ -45,15 +46,27 @@ function MyPage() {
     })
     const [bojInfo, setBojInfo] = useState(null)
     const [loadingBoj, setLoadingBoj] = useState(false)
+    const [recentActivity, setRecentActivity] = useState([])
+    const [stats, setStats] = useState({
+        totalStudyTime: '0시간',
+        streak: 0,
+        conversationCount: 0,
+        codingCount: 0,
+        codingPassedCount: 0,
+        accuracy: '0%',
+        wordsLearned: 0
+    })
+    const [weeklyData, setWeeklyData] = useState([
+        { day: '월', hours: 0 },
+        { day: '화', hours: 0 },
+        { day: '수', hours: 0 },
+        { day: '목', hours: 0 },
+        { day: '금', hours: 0 },
+        { day: '토', hours: 0 },
+        { day: '일', hours: 0 }
+    ])
 
-    const stats = {
-        totalStudyTime: '156시간',
-        streak: 12,
-        conversationCount: 45,
-        codingCount: 78,
-        accuracy: '89%',
-        wordsLearned: 234
-    }
+    const maxHours = Math.max(...weeklyData.map(d => d.hours), 1)
 
     const getRank = (streakDays) => {
         if (streakDays >= 100) return { emoji: '👑', name: '레전드 (Legend)', badge: 'badge-error' }
@@ -82,11 +95,45 @@ function MyPage() {
                 if (u.bojHandle) {
                     fetchBojInfo(u.bojHandle)
                 }
+                if (u.id) {
+                    fetchActivityHistory()
+                    fetchUserStats()
+                }
             } catch (e) {
                 console.error('Failed to parse user data:', e)
             }
         }
     }, [])
+
+    const fetchActivityHistory = async () => {
+        try {
+            const data = await userService.getActivityHistory()
+            if (data && data.recentActivity) {
+                setRecentActivity(data.recentActivity)
+            }
+        } catch (err) {
+            console.error('활동 내역 조회 실패:', err)
+        }
+    }
+
+    const fetchUserStats = async () => {
+        try {
+            const data = await userService.getUserStats()
+            if (data) {
+                if (data.stats) {
+                    setStats(prev => ({
+                        ...data.stats,
+                        // 백준 정보가 이미 로드되었다면 그 수도 다시 합산
+                        codingCount: data.stats.codingCount + (bojInfo?.solvedCount || 0),
+                        codingPassedCount: data.stats.codingPassedCount || 0,
+                    }))
+                }
+                if (data.weeklyData) setWeeklyData(data.weeklyData)
+            }
+        } catch (err) {
+            console.error('통계 조회 실패:', err)
+        }
+    }
 
     const fetchBojInfo = async (handle) => {
         if (!handle) return
@@ -94,6 +141,25 @@ function MyPage() {
         try {
             const info = await solvedacService.getUserInfo(handle)
             setBojInfo(info)
+
+            // 기존 stats에 백준 풀이 수를 합산하여 정답률 재계산
+            setStats(prev => {
+                const newCodingCount = prev.codingCount + (info.solvedCount || 0)
+                // 백준에서는 푼 문제(solvedCount)를 모두 패스한 것으로 가정 (제출 횟수를 알기 어려움)
+                const newCodingPassedCount = (prev.codingPassedCount || 0) + (info.solvedCount || 0)
+
+                let newAccuracy = prev.accuracy
+                if (newCodingCount > 0) {
+                    newAccuracy = Math.round((newCodingPassedCount / newCodingCount) * 100) + '%'
+                }
+
+                return {
+                    ...prev,
+                    codingCount: newCodingCount,
+                    codingPassedCount: newCodingPassedCount,
+                    accuracy: newAccuracy
+                }
+            })
         } catch (err) {
             console.error('BOJ 정보 조회 실패:', err)
             setBojInfo(null)
@@ -404,12 +470,17 @@ function MyPage() {
                                 <div className="activity-info">
                                     <span className="activity-title">{activity.title}</span>
                                     <span className="activity-detail">
-                                        {activity.result || activity.duration || activity.count}
+                                        {activity.result || activity.duration || activity.count || activity.detail}
                                     </span>
                                 </div>
-                                <span className="activity-time">{activity.time}</span>
+                                <span className="activity-time">{formatTimeAgo(activity.time)}</span>
                             </div>
                         ))}
+                        {recentActivity.length === 0 && (
+                            <p className="no-activity" style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                최근 활동 내역이 없습니다.
+                            </p>
+                        )}
                     </div>
                 </section>
             </div>
