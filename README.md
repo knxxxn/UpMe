@@ -111,6 +111,7 @@ UpMe/
 │   │   │   ├── userService.js       # 사용자 프로필 API
 │   │   │   ├── codingService.js     # 코딩 테스트 API
 │   │   │   ├── chatService.js       # 채팅 API
+│   │   │   ├── conversationService.js# DB 기반 AI 대화 세션 관리
 │   │   │   ├── wordService.js       # 단어 저장/조회 API
 │   │   │   └── solvedacService.js   # solved.ac 연동 API
 │   │   ├── App.jsx              # 라우팅 설정
@@ -129,13 +130,19 @@ UpMe/
 │   │   │   ├── AuthController.java  # 회원가입/로그인/로그아웃
 │   │   │   ├── UserController.java  # 프로필 조회/수정/탈퇴
 │   │   │   ├── WordController.java  # 단어 API
-│   │   │   └── HealthController.java # 헬스체크
+│   │   │   ├── ConversationController.java # 대화방 생성/조회/삭제
+│   │   │   ├── CodeReviewController.java # 코드 리뷰 API (Gemini)
+│   │   │   ├── HealthController.java # 헬스체크
 │   │   ├── model/
 │   │   │   ├── User.java            # 사용자 엔티티
+│   │   │   ├── UserActivity.java    # 사용자 활동/통계 엔티티
+│   │   │   ├── Conversation.java    # AI 대화 세션 엔티티
+│   │   │   ├── ChatMessage.java     # 대화 내 메시지 엔티티
 │   │   │   ├── Word.java            # 단어 엔티티
 │   │   │   └── SavedWord.java       # 저장 단어 엔티티
 │   │   ├── dto/                     # 요청/응답 DTO
 │   │   ├── repository/              # JPA 리포지토리
+│   │   ├── service/                 # 비즈니스 로직 (GeminiService 등)
 │   │   └── security/
 │   │       ├── JwtTokenProvider.java     # JWT 토큰 생성/검증
 │   │       └── JwtAuthenticationFilter.java # JWT 인증 필터
