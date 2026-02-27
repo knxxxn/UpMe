@@ -57,7 +57,7 @@ function Sidebar() {
             <div className="sidebar-header">
                 <NavLink to="/" className="sidebar-logo">
                     <span className="logo-icon">🚀</span>
-                    <span className="logo-text">MeUp</span>
+                    <span className="logo-text">UpMe</span>
                 </NavLink>
             </div>
 

@@ -54,7 +54,7 @@ function HomePage() {
             <section className="hero-section">
                 <div className="hero-content">
                     <h1 className="hero-title">
-                        <span className="gradient-text">MeUp</span>과 함께
+                        <span className="gradient-text">UpMe</span>와 함께
                         <br />
                         성장하세요
                     </h1>
