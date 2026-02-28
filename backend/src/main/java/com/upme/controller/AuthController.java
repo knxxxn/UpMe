@@ -15,6 +15,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Collections;
+import java.util.UUID;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.client.RestTemplate;
 
 @Slf4j
 @RestController
@@ -25,6 +33,10 @@ public class AuthController {
         private final JwtTokenProvider jwtTokenProvider;
         private final PasswordEncoder passwordEncoder;
         private final UserRepository userRepository;
+        private final RestTemplate restTemplate;
+
+        @Value("${google.client.id}")
+        private String googleClientId;
 
         /**
          * 로그인 (이메일 또는 전화번호)
@@ -133,6 +145,80 @@ public class AuthController {
                                                 .name(user.getName())
                                                 .build())
                                 .build());
+        }
+
+        /**
+         * 구글 소셜 로그인
+         * POST /api/auth/google
+         */
+        @PostMapping("/google")
+        public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> request) {
+                String accessTokenParam = request.get("token");
+
+                if (accessTokenParam == null) {
+                        return ResponseEntity.badRequest().body(Map.of("success", false, "message", "토큰이 없습니다."));
+                }
+
+                try {
+                        // 1. 구글 액세스 토큰을 사용하여 구글 사용자 정보 가져오기
+                        String userInfoUrl = "https://www.googleapis.com/oauth2/v3/userinfo?access_token="
+                                        + accessTokenParam;
+                        ResponseEntity<Map> response = restTemplate.getForEntity(userInfoUrl, Map.class);
+
+                        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                                throw new RuntimeException("구글 사용자 정보를 가져오는데 실패했습니다.");
+                        }
+
+                        Map<String, Object> payload = response.getBody();
+                        String email = (String) payload.get("email");
+                        String name = (String) payload.get("name");
+                        // profile picture: String pictureUrl = (String) payload.get("picture");
+
+                        if (email == null) {
+                                return ResponseEntity.badRequest()
+                                                .body(Map.of("success", false, "message", "구글 계정 이메일 정보를 얻을 수 없습니다."));
+                        }
+
+                        // 2. DB에서 이메일 확인, 없으면 신규 가입
+                        Optional<User> userOptional = userRepository.findByEmailOrPhoneNumber(email, email);
+                        User user;
+
+                        if (userOptional.isPresent()) {
+                                user = userOptional.get();
+                                log.info("구글 로그인 시도 (기존 유저): {}", email);
+                        } else {
+                                log.info("구글 로그인 시도 (신규 가입): {}", email);
+                                // 비밀번호는 구글 로그인 시 사용되지 않으므로 랜덤 UUID 생성
+                                user = User.builder()
+                                                .email(email)
+                                                .name(name != null ? name : "Google User")
+                                                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                                                .build();
+                                user = userRepository.save(user);
+                        }
+
+                        // 3. JWT 토큰 발급 (기존 로그인 방식과 동일)
+                        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail());
+                        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+
+                        return ResponseEntity.ok(AuthResponse.builder()
+                                        .success(true)
+                                        .message("구글 로그인 성공")
+                                        .accessToken(accessToken)
+                                        .refreshToken(refreshToken)
+                                        .user(AuthResponse.UserInfo.builder()
+                                                        .id(user.getId())
+                                                        .email(user.getEmail())
+                                                        .phoneNumber(user.getPhoneNumber())
+                                                        .name(user.getName())
+                                                        .build())
+                                        .build());
+
+                } catch (Exception e) {
+                        log.error("구글 로그인 처리 중 오류 발생", e);
+                        return ResponseEntity.badRequest().body(
+                                        Map.of("success", false, "message", "구글 인증에 실패했습니다.", "error", e.getMessage()));
+                }
         }
 
         /**

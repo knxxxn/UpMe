@@ -43,6 +43,12 @@ implementation_plan.md
 # Backend (Spring Boot)
 backend/.gradle/
 backend/build/
+backend/BOOT-INF/
+backend/META-INF/
+backend/org/
+backend/*.txt
+backend/*.class
+backend/*.json
 backend/src/main/resources/application.properties
 backend/src/main/resources/application-*.properties
 *.jar

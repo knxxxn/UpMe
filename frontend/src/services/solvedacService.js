@@ -1,9 +1,6 @@
-/**
- * solved.ac API 서비스
- * 백준 문제 검색 및 상세 조회
- */
+import api from './api'
 
-const BASE_URL = '/solvedac-api/api/v3'
+const BASE_URL = '/solvedac'
 
 // solved.ac 난이도 레벨 (0~30) → 이름/색상 매핑
 const TIER_INFO = {
@@ -80,15 +77,14 @@ export async function searchProblems(tierFilter = 'all', page = 1, sort = 'solve
         direction,
     })
 
-    const response = await fetch(`${BASE_URL}/search/problem?${params}`)
-    if (!response.ok) {
+    try {
+        const response = await api.get(`${BASE_URL}/search/problem?${params}`)
+        return {
+            count: response.data.count,
+            problems: response.data.items.map(transformProblem),
+        }
+    } catch (error) {
         throw new Error('문제 검색 실패')
-    }
-
-    const data = await response.json()
-    return {
-        count: data.count,
-        problems: data.items.map(transformProblem),
     }
 }
 
@@ -97,12 +93,12 @@ export async function searchProblems(tierFilter = 'all', page = 1, sort = 'solve
  * @param {number} problemId - 백준 문제 번호
  */
 export async function getProblem(problemId) {
-    const response = await fetch(`${BASE_URL}/problem/show?problemId=${problemId}`)
-    if (!response.ok) {
+    try {
+        const response = await api.get(`${BASE_URL}/problem/show?problemId=${problemId}`)
+        return transformProblem(response.data)
+    } catch (error) {
         throw new Error('문제 조회 실패')
     }
-    const data = await response.json()
-    return transformProblem(data)
 }
 
 /**
@@ -134,24 +130,25 @@ function transformProblem(item) {
  * @param {string} handle - 백준 아이디
  */
 export async function getUserInfo(handle) {
-    const response = await fetch(`${BASE_URL}/user/show?handle=${encodeURIComponent(handle)}`)
-    if (!response.ok) {
+    try {
+        const response = await api.get(`${BASE_URL}/user/show?handle=${encodeURIComponent(handle)}`)
+        const data = response.data
+        const tierInfo = getTierInfo(data.tier > 30 ? 30 : data.tier)
+        return {
+            handle: data.handle,
+            bio: data.bio,
+            profileImageUrl: data.profileImageUrl,
+            solvedCount: data.solvedCount,
+            tier: data.tier,
+            tierName: tierInfo.name,
+            tierColor: tierInfo.color,
+            rating: data.rating,
+            classNum: data.class,
+            maxStreak: data.maxStreak,
+            rank: data.rank,
+        }
+    } catch (error) {
         throw new Error('유저 정보 조회 실패')
-    }
-    const data = await response.json()
-    const tierInfo = getTierInfo(data.tier > 30 ? 30 : data.tier)
-    return {
-        handle: data.handle,
-        bio: data.bio,
-        profileImageUrl: data.profileImageUrl,
-        solvedCount: data.solvedCount,
-        tier: data.tier,
-        tierName: tierInfo.name,
-        tierColor: tierInfo.color,
-        rating: data.rating,
-        classNum: data.class,
-        maxStreak: data.maxStreak,
-        rank: data.rank,
     }
 }
 
@@ -167,14 +164,14 @@ export async function getUserSolvedProblems(handle, page = 1) {
         sort: 'level',
         direction: 'desc',
     })
-    const response = await fetch(`${BASE_URL}/search/problem?${params}`)
-    if (!response.ok) {
+    try {
+        const response = await api.get(`${BASE_URL}/search/problem?${params}`)
+        return {
+            count: response.data.count,
+            problems: response.data.items.map(transformProblem),
+        }
+    } catch (error) {
         throw new Error('풀이 기록 조회 실패')
-    }
-    const data = await response.json()
-    return {
-        count: data.count,
-        problems: data.items.map(transformProblem),
     }
 }
 
