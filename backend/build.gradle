@@ -40,6 +40,7 @@ dependencies {
     // MySQL & JPA
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.15.2'
     
     // Apache POI (Excel parsing)
     implementation 'org.apache.poi:poi-ooxml:5.2.5'
