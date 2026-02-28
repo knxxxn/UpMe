@@ -11,7 +11,7 @@ import axios from 'axios';
 // API 기본 설정
 const api = axios.create({
     // TODO: DATABASE 연결 필요 - 실제 백엔드 URL로 변경
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+    baseURL: import.meta.env.VITE_API_URL || 'https://upme-backend-service-603271573899.asia-northeast3.run.app/api',
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',

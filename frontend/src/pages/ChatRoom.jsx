@@ -8,7 +8,7 @@ import './ChatRoom.css'
 
 // Gemini API용 별도 axios 인스턴스 (타임아웃 30초) - 비로그인 체험용
 const chatApi = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+    baseURL: import.meta.env.VITE_API_URL || 'https://upme-backend-service-603271573899.asia-northeast3.run.app/api',
     timeout: 30000,
     headers: { 'Content-Type': 'application/json' },
 })
