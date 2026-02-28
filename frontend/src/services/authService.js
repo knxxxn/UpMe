@@ -31,6 +31,27 @@ const authService = {
     },
 
     /**
+     * 구글 로그인
+     * @param {string} token - 구글 Access Token
+     * @returns {Promise} 로그인 결과
+     */
+    async googleLogin(token) {
+        try {
+            const response = await api.post('/auth/google', { token });
+            const { accessToken, refreshToken, user } = response.data;
+
+            localStorage.setItem('accessToken', accessToken);
+            localStorage.setItem('refreshToken', refreshToken);
+            localStorage.setItem('user', JSON.stringify(user));
+
+            return response.data;
+        } catch (error) {
+            console.error('구글 로그인 실패:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
      * 회원가입
      * @param {Object} userData - 사용자 정보
      * @param {string} userData.email - 이메일

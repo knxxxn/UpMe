@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useGoogleLogin } from '@react-oauth/google'
 import authService from '../services/authService'
 import { useAuth } from '../components/AuthContext'
 import './LoginPage.css'
@@ -38,6 +39,28 @@ function LoginPage() {
             setIsLoading(false)
         }
     }
+
+    const handleGoogleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            try {
+                setIsLoading(true)
+                const response = await authService.googleLogin(tokenResponse.access_token)
+                if (response.success) {
+                    login(response.user, response.accessToken, response.refreshToken)
+                    navigate('/')
+                }
+            } catch (err) {
+                console.error("Google login error:", err)
+                setError(err.response?.data?.message || '구글 로그인에 실패했습니다. 다시 시도해주세요.')
+            } finally {
+                setIsLoading(false)
+            }
+        },
+        onError: errorResponse => {
+            console.error("Google OAuth error:", errorResponse)
+            setError('구글 로그인에 실패했습니다.')
+        }
+    })
 
     return (
         <div className="login-page animate-fade-in">
@@ -115,7 +138,12 @@ function LoginPage() {
                     </div>
 
                     <div className="social-login">
-                        <button className="social-btn google">
+                        <button
+                            type="button"
+                            className="social-btn google"
+                            onClick={() => handleGoogleLogin()}
+                            disabled={isLoading}
+                        >
                             <span>G</span>
                             Google로 로그인
                         </button>
