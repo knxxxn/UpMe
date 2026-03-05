@@ -116,14 +116,14 @@ graph TD
     User -->|Web Access| UI
     UI <--> API_Client
     
-    API_Client <-->|REST API (JSON)| Security
+    API_Client -->|REST API JSON| Security
     Security <--> Controller
     Controller <--> Service
     Service <--> JPA
-    JPA <-->|SQL| DB
+    JPA -->|SQL| DB
     
-    Service <-->|Prompt/Response| Gemini
-    API_Client <-->|Fetch Stats| SolvedAC
+    Service -->|Prompt & Response| Gemini
+    API_Client -->|Fetch Stats| SolvedAC
 
     class UI,API_Client frontend;
     class Security,Controller,Service,JPA backend;
