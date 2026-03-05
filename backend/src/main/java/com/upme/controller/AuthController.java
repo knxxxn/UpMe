@@ -82,6 +82,7 @@ public class AuthController {
                                                 .email(user.getEmail())
                                                 .phoneNumber(user.getPhoneNumber())
                                                 .name(user.getName())
+                                                .bojHandle(user.getBojHandle())
                                                 .build())
                                 .build());
         }
@@ -143,6 +144,7 @@ public class AuthController {
                                                 .email(user.getEmail())
                                                 .phoneNumber(user.getPhoneNumber())
                                                 .name(user.getName())
+                                                .bojHandle(user.getBojHandle())
                                                 .build())
                                 .build());
         }
@@ -211,6 +213,7 @@ public class AuthController {
                                                         .email(user.getEmail())
                                                         .phoneNumber(user.getPhoneNumber())
                                                         .name(user.getName())
+                                                        .bojHandle(user.getBojHandle())
                                                         .build())
                                         .build());
 

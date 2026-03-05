@@ -48,15 +48,29 @@ function CodingListPage() {
             if (!handle) return
 
             const ids = new Set()
-            let page = 1
-            let hasMore = true
-            // 최대 10페이지 (500개)까지만 가져오기
-            while (hasMore && page <= 10) {
-                const result = await getUserSolvedProblems(handle, page)
-                result.problems.forEach(p => ids.add(p.id))
-                hasMore = ids.size < result.count && result.problems.length > 0
-                page++
+
+            // 첫 번째 페이지를 가져와 전체 개수 확인
+            const firstResult = await getUserSolvedProblems(handle, 1)
+            firstResult.problems.forEach(p => ids.add(p.id))
+
+            // 총 문제 수에 따라 필요한 남은 페이지 계산 (최대 10페이지 = 500개까지만)
+            const totalCount = firstResult.count
+            const totalNeededPages = Math.min(10, Math.ceil(totalCount / 50))
+
+            // 2페이지 이상 존재할 경우 병렬(Parallel) 요청 처리
+            if (totalNeededPages > 1) {
+                const promises = []
+                for (let page = 2; page <= totalNeededPages; page++) {
+                    promises.push(getUserSolvedProblems(handle, page))
+                }
+
+                // 모든 페이지의 요청을 동시에 기다림
+                const results = await Promise.all(promises)
+                results.forEach(result => {
+                    result.problems.forEach(p => ids.add(p.id))
+                })
             }
+
             setSolvedIds(ids)
         } catch (err) {
             console.error('풀이 기록 로딩 실패:', err)
