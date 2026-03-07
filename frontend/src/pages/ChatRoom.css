@@ -133,6 +133,34 @@
     padding: 0 0.5rem;
 }
 
+/* TTS Button */
+.message-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.tts-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.25rem;
+    border-radius: var(--radius-sm);
+    opacity: 0.6;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tts-btn:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
+    transform: scale(1.1);
+}
+
 /* Feedback Messages */
 .message.feedback .message-avatar {
     background: linear-gradient(135deg, #f59e0b, #d97706);
@@ -253,6 +281,48 @@
 .send-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* STT Button */
+.stt-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    font-size: 1.25rem;
+    cursor: pointer;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.stt-btn:hover:not(:disabled) {
+    background: var(--color-bg-secondary);
+    transform: scale(1.05);
+}
+
+.stt-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.stt-btn.listening {
+    animation: pulse-record 1.5s infinite;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+@keyframes pulse-record {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
 }
 
 .input-hint {

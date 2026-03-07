@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import LoginPromptModal from '../components/LoginPromptModal'
 import { useAuth } from '../components/AuthContext'
@@ -41,8 +41,10 @@ function ChatRoom() {
     const [showLoginPrompt, setShowLoginPrompt] = useState(false)
     const [chatTopicName, setChatTopicName] = useState(topicName)
     const [loadingMessages, setLoadingMessages] = useState(false)
+    const [isListening, setIsListening] = useState(false)
     const messagesEndRef = useRef(null)
     const isRequestInFlight = useRef(false)
+    const recognitionRef = useRef(null)
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -51,6 +53,96 @@ function ChatRoom() {
     useEffect(() => {
         scrollToBottom()
     }, [messages])
+
+    // 음성 인식(STT) 초기화
+    useEffect(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition()
+            recognition.continuous = false
+            recognition.interimResults = true
+            recognition.lang = 'en-US' // 영어 회화이므로 영어를 기본으로 설정
+
+            recognition.onresult = (event) => {
+                let interimTranscript = ''
+                let finalTranscript = ''
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript
+                    } else {
+                        interimTranscript += event.results[i][0].transcript
+                    }
+                }
+
+                if (finalTranscript) {
+                    setInput(prev => {
+                        const spacer = prev && !prev.endsWith(' ') ? ' ' : ''
+                        return prev + spacer + finalTranscript
+                    })
+                }
+            }
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event.error)
+                setIsListening(false)
+            }
+
+            recognition.onend = () => {
+                setIsListening(false)
+            }
+
+            recognitionRef.current = recognition
+        }
+
+        // 컴포넌트 언마운트 시 TTS 중지
+        return () => {
+            window.speechSynthesis.cancel()
+        }
+    }, [])
+
+    const toggleListening = () => {
+        if (!recognitionRef.current) {
+            alert('이 브라우저에서는 음성 인식을 지원하지 않습니다. Chrome을 권장합니다.')
+            return
+        }
+
+        if (isListening) {
+            recognitionRef.current.stop()
+        } else {
+            try {
+                recognitionRef.current.start()
+                setIsListening(true)
+            } catch (e) {
+                console.error("음성 인식 시작 실패:", e)
+            }
+        }
+    }
+
+    // TTS(텍스트 읽어주기) 함수
+    const playAudio = useCallback((text) => {
+        if (!text) return
+
+        // 실행 중인 음성 취소
+        window.speechSynthesis.cancel()
+
+        const utterance = new SpeechSynthesisUtterance(text)
+        utterance.lang = 'en-US'
+
+        // 조금 더 자연스러운 영어 목소리 선택 (가능한 경우)
+        const voices = window.speechSynthesis.getVoices()
+        const englishVoice = voices.find(voice => voice.lang.startsWith('en-') && voice.name.includes('Google')) ||
+            voices.find(voice => voice.lang.startsWith('en-'))
+
+        if (englishVoice) {
+            utterance.voice = englishVoice
+        }
+
+        // 속도 및 피치 조절 (선택사항)
+        utterance.rate = 1.0
+        utterance.pitch = 1.0
+
+        window.speechSynthesis.speak(utterance)
+    }, [])
 
     // DB 모드: 이전 메시지 로드
     useEffect(() => {
@@ -260,7 +352,19 @@ function ChatRoom() {
                             )}
                             <div className={`message-content ${message.type === 'feedback' ? 'feedback-content' : ''}`}>
                                 <p className="message-text">{message.content}</p>
-                                <span className="message-time">{message.timestamp}</span>
+                                <div className="message-meta">
+                                    <span className="message-time">{message.timestamp}</span>
+                                    {message.role === 'ai' && (
+                                        <button
+                                            className="tts-btn"
+                                            onClick={() => playAudio(message.content)}
+                                            title="들어보기"
+                                            aria-label="메시지 듣기"
+                                        >
+                                            🔊
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))
@@ -284,6 +388,15 @@ function ChatRoom() {
 
             <div className="input-container">
                 <div className="input-wrapper">
+                    <button
+                        className={`stt-btn ${isListening ? 'listening' : ''}`}
+                        onClick={toggleListening}
+                        title={isListening ? "녹음 중지" : "음성으로 입력하기"}
+                        disabled={isGuestLimitReached}
+                        type="button"
+                    >
+                        {isListening ? '🛑' : '🎙️'}
+                    </button>
                     <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
@@ -291,11 +404,11 @@ function ChatRoom() {
                         placeholder={
                             isGuestLimitReached
                                 ? "체험이 끝났습니다. 로그인하여 계속하세요!"
-                                : "영어로 메시지를 입력하세요..."
+                                : (isListening ? "듣고 있습니다..." : "영어로 메시지를 입력하세요...")
                         }
                         rows={1}
                         className="message-input"
-                        disabled={isGuestLimitReached}
+                        disabled={isGuestLimitReached || isListening}
                     />
                     <button
                         onClick={handleSend}
