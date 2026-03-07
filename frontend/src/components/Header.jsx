@@ -1,30 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import authService from '../services/authService'
+import { useAuth } from './AuthContext'
 import ThemeToggle from './ThemeToggle'
 import './Header.css'
 
 function Header() {
     const location = useLocation()
     const navigate = useNavigate()
-    const [user, setUser] = useState(null)
-
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user')
-        if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser))
-            } catch (e) {
-                setUser(null)
-            }
-        } else {
-            setUser(null)
-        }
-    }, [location])
+    const { user, logout } = useAuth()
 
     const handleLogout = async () => {
-        await authService.logout()
-        setUser(null)
+        logout()
         navigate('/login')
     }
 

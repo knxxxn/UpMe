@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../components/AuthContext'
 import { useToast } from '../components/ToastContext'
 import wordService from '../services/wordService'
@@ -58,8 +59,8 @@ function WordBookPage() {
                     <span className="notice-icon">🔒</span>
                     <p>로그인하면 저장한 단어를 확인할 수 있어요!</p>
                     <div className="notice-buttons">
-                        <a href="/login" className="btn btn-primary">로그인</a>
-                        <a href="/register" className="btn btn-secondary">회원가입</a>
+                        <Link to="/login" className="btn btn-primary">로그인</Link>
+                        <Link to="/register" className="btn btn-secondary">회원가입</Link>
                     </div>
                 </div>
             ) : loading ? (
@@ -72,7 +73,7 @@ function WordBookPage() {
                     <span className="empty-icon">📝</span>
                     <h3>저장한 단어가 없습니다</h3>
                     <p>오늘의 단어에서 마음에 드는 단어를 저장해보세요!</p>
-                    <a href="/daily-word" className="btn btn-primary">오늘의 단어 보러가기</a>
+                    <Link to="/daily-word" className="btn btn-primary">오늘의 단어 보러가기</Link>
                 </div>
             ) : (
                 <>
