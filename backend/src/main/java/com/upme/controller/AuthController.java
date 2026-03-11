@@ -33,6 +33,7 @@ public class AuthController {
         private final JwtTokenProvider jwtTokenProvider;
         private final PasswordEncoder passwordEncoder;
         private final UserRepository userRepository;
+        private final com.upme.repository.UserActivityRepository userActivityRepository;
         private final RestTemplate restTemplate;
 
         @Value("${google.client.id}")
@@ -71,6 +72,8 @@ public class AuthController {
                 String accessToken = jwtTokenProvider.createAccessToken(user.getId(),
                                 user.getEmail() != null ? user.getEmail() : user.getPhoneNumber());
                 String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+
+                recordLoginActivity(user);
 
                 return ResponseEntity.ok(AuthResponse.builder()
                                 .success(true)
@@ -133,6 +136,8 @@ public class AuthController {
                 String accessToken = jwtTokenProvider.createAccessToken(user.getId(),
                                 user.getEmail() != null ? user.getEmail() : user.getPhoneNumber());
                 String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+
+                recordLoginActivity(user);
 
                 return ResponseEntity.ok(AuthResponse.builder()
                                 .success(true)
@@ -203,6 +208,8 @@ public class AuthController {
                         String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail());
                         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
+                        recordLoginActivity(user);
+
                         return ResponseEntity.ok(AuthResponse.builder()
                                         .success(true)
                                         .message("구글 로그인 성공")
@@ -261,5 +268,19 @@ public class AuthController {
                 return ResponseEntity.ok(Map.of(
                                 "success", true,
                                 "message", "로그아웃 성공"));
+        }
+
+        private void recordLoginActivity(User user) {
+                try {
+                        com.upme.model.UserActivity activity = com.upme.model.UserActivity.builder()
+                                        .user(user)
+                                        .activityType("login")
+                                        .title("출석")
+                                        .detail("로그인")
+                                        .build();
+                        userActivityRepository.save(activity);
+                } catch (Exception e) {
+                        log.error("로그인 활동 기록 실패", e);
+                }
         }
 }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import LoginPromptModal from '../components/LoginPromptModal'
 import { useAuth } from '../components/AuthContext'
 import axios from 'axios'
@@ -26,6 +26,7 @@ const topics = {
 
 function ChatRoom() {
     const { roomId } = useParams()
+    const navigate = useNavigate()
     const { isLoggedIn } = useAuth()
 
     // DB 기반 대화인지 체험 모드인지 구분
@@ -45,6 +46,8 @@ function ChatRoom() {
     const messagesEndRef = useRef(null)
     const isRequestInFlight = useRef(false)
     const recognitionRef = useRef(null)
+    const hasUserMessageRef = useRef(false)
+    const initialMessageCountRef = useRef(0)
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -94,11 +97,18 @@ function ChatRoom() {
             recognitionRef.current = recognition
         }
 
-        // 컴포넌트 언마운트 시 TTS 중지
+        // 컴포넌트 언마운트 시 TTS 중지 및 빈 방 삭제
         return () => {
             window.speechSynthesis.cancel()
+            
+            // 빈 방 처리 (새로 생성된 방인데 메시지가 0개인 경우 삭제)
+            if (isDbMode && conversationId) {
+                if (initialMessageCountRef.current === 0 && !hasUserMessageRef.current) {
+                    conversationService.deleteConversation(conversationId).catch(console.error)
+                }
+            }
         }
-    }, [])
+    }, [isDbMode, conversationId])
 
     const toggleListening = () => {
         if (!recognitionRef.current) {
@@ -163,6 +173,7 @@ function ChatRoom() {
         setLoadingMessages(true)
         try {
             const data = await conversationService.getMessages(conversationId)
+            initialMessageCountRef.current = data.length;
             const loadedMessages = data.map(m => ({
                 id: m.id,
                 role: m.role,
@@ -235,6 +246,7 @@ function ChatRoom() {
             timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
         }
 
+        hasUserMessageRef.current = true;
         setMessages(prev => [...prev, userMessage])
         const currentInput = input
         setInput('')
@@ -299,6 +311,20 @@ function ChatRoom() {
         }
     }
 
+    const handleDeleteChat = async () => {
+        if (!window.confirm('현재 대화를 삭제하고 나가시겠습니까?')) return
+        try {
+            await conversationService.deleteConversation(conversationId)
+            // navigate 전에 삭제 플래그를 두면 좋지만, 삭제후 이동해도 문제없음. 이동 시 unmount cleanup 호출됨
+            // unmount cleanup 은 이미 삭제된 것을 다시 삭제하려 하겠지만 catch 가 있음
+            // 안전을 위해 flag 설정
+            hasUserMessageRef.current = true; // 빈 방 삭제 트리거 방지
+            navigate('/conversation')
+        } catch (err) {
+            console.error('대화 삭제 실패:', err)
+        }
+    }
+
     const handleKeyPress = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
@@ -323,6 +349,16 @@ function ChatRoom() {
                     </div>
                 </div>
                 <div className="chat-actions">
+                    {isDbMode && (
+                        <button 
+                            className="btn btn-danger-outline" 
+                            style={{ padding: '4px 8px', fontSize: '0.8rem', marginRight: '10px' }}
+                            onClick={handleDeleteChat}
+                            title="이 채팅방 삭제"
+                        >
+                            🗑️ 삭제
+                        </button>
+                    )}
                     {remainingMessages !== null && (
                         <span className="guest-limit-badge">
                             체험 {remainingMessages}회 남음
